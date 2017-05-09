@@ -36,7 +36,7 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
     dictionary *ini;
     size_t lenos;
     int ierr, item, k, ncmds, ncmdsWork, nitems, nfiles, nlines, nobs;
-    bool luseDataList;
+    bool luseDataList, luseProcessingList;
     nobs = 0;
     nfiles = 0;
     ierr = 0;
@@ -145,8 +145,8 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
             s = iniparser_getstring(ini, varname, NULL);
             if (os_path_isfile(s))
             {
-                strcpy(sacpzFiles[nobs], s); 
-            } 
+                strcpy(sacpzFiles[nobs], s);
+            }
             nobs = nobs + 1;
         }
     }
@@ -165,36 +165,46 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
                  calloc((size_t) data->maxobs,
                         sizeof(struct tdSearchDataProcessingCommands_struct));
     ncmds = iniparser_getint(ini, "tdSearch:data:nCommands\0", 0);
-    if (ncmds > 0)
+    luseProcessingList
+        = iniparser_getboolean(ini, "tdSearch:data:useProcessingList\0", false);
+    if (!luseProcessingList)
     {
-        ncmdsWork = ncmds;
-        ncmds = 0;
-        cmds = (char **) calloc((size_t) ncmdsWork, sizeof(char *));
-        for (k=0; k<ncmdsWork; k++)
+        if (ncmds > 0)
         {
-            memset(varname, 0, 128*sizeof(char));
-            sprintf(varname, "tdSearch:data:command_%d", k+1);
-            s = iniparser_getstring(ini, varname, NULL);
-            if (s == NULL){continue;}
-            lenos = strlen(s);
-            cmds[ncmds] = (char *) calloc(lenos+1, sizeof(char));
-            strcpy(cmds[ncmds], s);
-            //printf("%s\n", cmds[ncmds]);
-            ncmds = ncmds + 1;
+            ncmdsWork = ncmds;
+            ncmds = 0;
+            cmds = (char **) calloc((size_t) ncmdsWork, sizeof(char *));
+            for (k=0; k<ncmdsWork; k++)
+            {
+                memset(varname, 0, 128*sizeof(char));
+                sprintf(varname, "tdSearch:data:command_%d", k+1);
+                s = iniparser_getstring(ini, varname, NULL);
+                if (s == NULL){continue;}
+                lenos = strlen(s);
+                cmds[ncmds] = (char *) calloc(lenos+1, sizeof(char));
+                strcpy(cmds[ncmds], s);
+                //printf("%s\n", cmds[ncmds]);
+                ncmds = ncmds + 1;
+            }
+            // Attach these to the data processing structure
+            for (k=0; k<data->nobs; k++)
+            {
+                ierr = tdsearch_data_attachCommandsToObservation(
+                           k, ncmds, (const char **) cmds, data);
+            }
+            // Free space
+            for (k=0; k<ncmdsWork; k++)
+            {
+                if (cmds[k] != NULL){free(cmds[k]);}
+            }
+            free(cmds);
         }
-        // Attach these to the data processing structure
-        for (k=0; k<data->nobs; k++)
-        {
-            ierr = tdsearch_data_attachCommandsToObservation(
-                       k, ncmds, (const char **) cmds, data);
-        }
-        // Free space
-        for (k=0; k<ncmdsWork; k++)
-        {
-            if (cmds[k] != NULL){free(cmds[k]);}
-        }
-        free(cmds);
-    } 
+    }
+    else
+    {
+        log_errorF("%s: processing commands list not yet programmed\n", fcnm);
+        ierr = 1;
+    }
 ERROR:;
     if (nfiles > 0)
     {
@@ -603,65 +613,220 @@ ERROR:;
 /*!
  * @brief Some ad-hoc rules for fixing the data processing commands. 
  *
+ * @param[in,out] data    On input contains the data and processing commands.
+ *                        On output the generic processing commands have
+ *                        been modified so that they are parsable by ispl.
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
  */
-char **tdsearch_data_modifyProcessingCommands(
-    const int ncmds, const char **cmds,
+int tdsearch_data_modifyProcessingCommands(
     const double cut0, const double cut1, const double targetDt,
-    const struct sacData_struct data,
-    int *ierr)
+    struct tdSearchData_struct *data)
 {
     const char *fcnm = "tdsearch_data_modifyProcessingCommands\0";
-    char **newCmds, cwork[MAX_CMD_LEN], cmd1[64], cmd2[64];
-    double dt0;
+    char **newCmds, **cmds, **cmdSplit, cwork[MAX_CMD_LEN],
+         c64[64], cmd1[64], cmd2[64];
+    double dt0, epoch, ptime, t0, t1;
+    bool oneCorner;
     size_t lenos;
-    int i;
+    int i, ierr, k, l, ncmds, nsplit;
     const bool laaFilter = true; // anti-alias filter in decimation
     const bool lfixPhase = true; // don't let anti-alias filter mess up picks
-    *ierr = 0;
-    newCmds = NULL;
-    if (ncmds < 1){return newCmds;}
-    // Modify the problematic commands
-    *ierr = sacio_getFloatHeader(SAC_FLOAT_DELTA, data.header, &dt0);
-    newCmds = (char **) calloc((size_t) ncmds, sizeof(char *));
-    for (i=0; i<ncmds; i++)
+    //------------------------------------------------------------------------//
+    ierr = 0;
+    for (k=0; k<data->nobs; k++)
     {
-        lenos = strlen(cmds[i]);
-        memset(cwork, 0, MAX_CMD_LEN*sizeof(char));
-        memset(cmd1, 0, 64*sizeof(char));
-        memset(cmd2, 0, 64*sizeof(char));
-        if (strcasecmp(cmds[i], "transfer\0") == 0)
+        newCmds = NULL;
+        ncmds =  data->cmds[k].ncmds; 
+        if (ncmds < 1){continue;} // Nothing to do
+        cmds = data->cmds[k].cmds;
+        // Modify the problematic commands
+        ierr = sacio_getFloatHeader(SAC_FLOAT_DELTA, data->obs[k].header, &dt0);
+        newCmds = (char **) calloc((size_t) ncmds, sizeof(char *));
+        for (i=0; i<ncmds; i++)
         {
-
-        }
-        if (strcasecmp(cmds[i], "decimate\0") == 0)
-        {
-            *ierr = decimate_createDesignCommandsWithDT(dt0, targetDt,
-                                                        laaFilter, lfixPhase,
-                                                        cwork);
-            if (*ierr != 0)
+            newCmds[i] = (char *) calloc(MAX_CMD_LEN, sizeof(char));
+            lenos = strlen(cmds[i]);
+            memset(cwork, 0, MAX_CMD_LEN*sizeof(char));
+            memset(cmd1, 0, 64*sizeof(char));
+            memset(cmd2, 0, 64*sizeof(char));
+            strncpy(cmd1, cmds[i], MIN(3, lenos));
+            strncpy(cmd2, cmds[i], MIN(3, lenos));
+            if (strcasecmp(cmds[i], "transfer\0") == 0)
             {
-                log_errorF("%s: Couldn't modify the decimate command\n", fcnm);
-                break;
+                log_errorF("%s: transfer command not yet done\n", fcnm);
+                ierr = 1;
+                goto ERROR;
             }
-            dt0 = targetDt;
-        }
-        if (strcasecmp(cmds[i], "downsample\0") == 0)
-        {
-            *ierr = downsample_downsampleTargetSamplingPeriodToString(
-                       dt0, targetDt, cwork);
-            if (*ierr != 0)
+            else if (strcasecmp(cmd1, "lowpass\0") == 0 ||
+                     strcasecmp(cmd1, "highpas\0") == 0)
             {
-                log_errorF("%s: Couldn't modify downsample command\n", fcnm);
-                break;
+                cmdSplit = string_rsplit(NULL, cmds[i], &nsplit);
+                strcpy(cwork, cmdSplit[0]);
+                strcat(cwork, " ");
+                for (l=1; l<nsplit; l++)
+                {
+                    if (strcasecmp(cmdSplit[l], "corner\0") == 0)
+                    {
+                        memset(c64, 0, 64*sizeof(char));
+                        sprintf(c64, "dt %f corner %s", dt0, cmdSplit[l+1]);
+                        strcat(cwork, c64);
+                        l = l + 1;
+                    }
+                    else
+                    {
+                        strcat(cwork, cmdSplit[l]);
+                    }
+                    if (l < nsplit - 1){strcat(cwork, " ");}
+                 }
+                 for (l=0; l<nsplit; l++){free(cmdSplit[l]);}
+                 free(cmdSplit);
             }
+            else if (strcasecmp(cmd1, "bandpas\0") == 0 ||
+                     strcasecmp(cmd1, "bandrej\0") == 0)
+            {
+                cmdSplit = string_rsplit(NULL, cmds[i], &nsplit);
+                strcpy(cwork, cmdSplit[0]);
+                strcat(cwork, " ");
+                for (l=1; l<nsplit; l++)
+                {
+                    if (strcasecmp(cmdSplit[l], "corners\0") == 0)
+                    {
+                        memset(c64, 0, 64*sizeof(char));
+                        sprintf(c64, "dt %f corners %s %s",
+                                dt0, cmdSplit[l+1], cmdSplit[l+2]);
+                        strcat(cwork, c64);
+                        l = l + 2;
+                    }
+                    else
+                    {
+                        strcat(cwork, cmdSplit[l]);
+                    }
+                    if (l < nsplit - 1){strcat(cwork, " ");}
+                }
+                for (l=0; l<nsplit; l++){free(cmdSplit[l]);}
+                free(cmdSplit);
+            }
+            else if (strcasecmp(cmd2, "sos\0") == 0)
+            {
+                oneCorner = false;
+                cmdSplit = string_rsplit(NULL, cmds[i], &nsplit);
+                strcpy(cwork, cmdSplit[0]);
+                strcat(cwork, " ");
+                for (l=1; l<nsplit; l++)
+                {
+                    if (strcasecmp(cmdSplit[l], "lowpass\0") == 0 ||
+                        strcasecmp(cmdSplit[l], "highpas\0") == 0)
+                    {
+                        oneCorner = true;
+                    }
+                    if (strcasecmp(cmdSplit[l], "bandpas\0") == 0 ||
+                        strcasecmp(cmdSplit[l], "bandrej\0") == 0)
+                    {
+                        oneCorner = false;
+                    }
+                }
+                for (l=1; l<nsplit; l++)
+                {
+                    if (strcasecmp(cmdSplit[l], "corner\0") == 0 ||
+                        strcasecmp(cmdSplit[l], "corners\0") == 0)
+                    {
+                        if (oneCorner)
+                        {
+                            memset(c64, 0, 64*sizeof(char));
+                            sprintf(c64, "dt %f corner %s", dt0, cmdSplit[l+1]);
+                            strcat(cwork, c64);
+                            l = l + 1;
+                        }
+                        else
+                        {
+                            memset(c64, 0, 64*sizeof(char));
+                            sprintf(c64, "dt %f corners %s %s",
+                                    dt0, cmdSplit[l+1], cmdSplit[l+2]);
+                            strcat(cwork, c64);
+                            l = l + 2;
+                        }
+                    }
+                    else
+                    {
+                        strcat(cwork, cmdSplit[l]);
+                    }   
+                    if (l < nsplit - 1){strcat(cwork, " ");}
+                }
+                for (l=0; l<nsplit; l++){free(cmdSplit[l]);}
+                free(cmdSplit);
+            }
+            else if (strcasecmp(cmds[i], "cut\0") == 0)
+            {
+                ierr = sacio_getEpochalStartTime(data->obs[k].header, &epoch);
+                if (ierr != 0)
+                {
+                    log_errorF("%s: Failed to get start time\n", fcnm);
+                    goto ERROR;
+                }
+                ierr = sacio_getFloatHeader(SAC_FLOAT_A, data->obs[k].header,
+                                            &ptime);
+                if (ierr != 0)
+                {
+                    log_errorF("%s: Failed to get pick time\n", fcnm);
+                    goto ERROR;
+                }
+                t0 = epoch + ptime + cut0; // superfluous; epoch will be removed
+                t1 = epoch + ptime + cut1; // superfluous; epoch will be removed
+                ierr = cut_cutEpochalTimesToString(dt0, epoch, t0, t1, cwork); 
+                if (ierr != 0)
+                {
+                    log_errorF("%s: Failed to modify cut command\n", fcnm);
+                    goto ERROR;
+                }
+            }
+            else if (strcasecmp(cmds[i], "decimate\0") == 0)
+            {
+                ierr = decimate_createDesignCommandsWithDT(dt0, targetDt,
+                                                           laaFilter, lfixPhase,
+                                                           cwork);
+                if (ierr != 0)
+                {
+                    log_errorF("%s: Couldn't modify the decimate command\n",
+                               fcnm);
+                    goto ERROR; 
+                }
+                dt0 = targetDt;
+            }
+            else if (strcasecmp(cmds[i], "downsample\0") == 0)
+            {
+                ierr = downsample_downsampleTargetSamplingPeriodToString(
+                           dt0, targetDt, cwork);
+                if (ierr != 0)
+                {
+                    log_errorF("%s: Couldn't modify downsample command\n",
+                               fcnm);
+                    goto ERROR; 
+                }
+                dt0 = targetDt;
+            }
+            else
+            {
+                strcpy(cwork, cmds[i]);
+            }
+            // Update the command
+            strcpy(newCmds[i], cwork); 
+        } // Loop on commands
+        // Reset the command structure and free newCmds
+        for (i=0; i<ncmds; i++)
+        { 
+            if (data->cmds[k].cmds[i] != NULL){free(data->cmds[k].cmds[i]);}
+            data->cmds[k].cmds[i] = (char *) calloc(MAX_CMD_LEN, sizeof(char));
+            strcpy(data->cmds[k].cmds[i], newCmds[i]);
+            free(newCmds[i]);
         }
-        else
-        {
-            newCmds[i] = (char *) calloc(lenos+1, sizeof(char));
-            strcpy(newCmds[i], cmds[i]);
-        }
+        free(newCmds);
     }
-    return newCmds;
+ERROR:;
+    return ierr;
 }
 //============================================================================//
 /*!

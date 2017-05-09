@@ -31,9 +31,11 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
     const char *fcnm = "tdsearch_data_initializeFromFile\0";
     FILE *flist;
     const char *s;
-    char **sacFiles, **sacpzFiles, **csplit, varname[128], cline[2*PATH_MAX];
+    char **sacFiles, **sacpzFiles, **csplit, **cmds,
+         varname[128], cline[2*PATH_MAX];
     dictionary *ini;
-    int ierr, item, k, nitems, nfiles, nlines, nobs;
+    size_t lenos;
+    int ierr, item, k, ncmds, ncmdsWork, nitems, nfiles, nlines, nobs;
     bool luseDataList;
     nobs = 0;
     nfiles = 0;
@@ -148,7 +150,7 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
             nobs = nobs + 1;
         }
     }
-    // Finally read the data
+    // Read the data
     ierr = tdsearch_data_readFiles(nfiles,
                                    (const char **) sacFiles,
                                    (const char **) sacpzFiles, data);
@@ -156,7 +158,43 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
     {
         log_errorF("%s: Error reading data files\n", fcnm);
         ierr = 1;
+        goto ERROR;
     }
+    // Read the processing commands
+    data->cmds = (struct tdSearchDataProcessingCommands_struct *)
+                 calloc((size_t) data->maxobs,
+                        sizeof(struct tdSearchDataProcessingCommands_struct));
+    ncmds = iniparser_getint(ini, "tdSearch:data:nCommands\0", 0);
+    if (ncmds > 0)
+    {
+        ncmdsWork = ncmds;
+        ncmds = 0;
+        cmds = (char **) calloc((size_t) ncmdsWork, sizeof(char *));
+        for (k=0; k<ncmdsWork; k++)
+        {
+            memset(varname, 0, 128*sizeof(char));
+            sprintf(varname, "tdSearch:data:command_%d", k+1);
+            s = iniparser_getstring(ini, varname, NULL);
+            if (s == NULL){continue;}
+            lenos = strlen(s);
+            cmds[ncmds] = (char *) calloc(lenos+1, sizeof(char));
+            strcpy(cmds[ncmds], s);
+            //printf("%s\n", cmds[ncmds]);
+            ncmds = ncmds + 1;
+        }
+        // Attach these to the data processing structure
+        for (k=0; k<data->nobs; k++)
+        {
+            ierr = tdsearch_data_attachCommandsToObservation(
+                       k, ncmds, (const char **) cmds, data);
+        }
+        // Free space
+        for (k=0; k<ncmdsWork; k++)
+        {
+            if (cmds[k] != NULL){free(cmds[k]);}
+        }
+        free(cmds);
+    } 
 ERROR:;
     if (nfiles > 0)
     {
@@ -176,6 +214,64 @@ ERROR:;
 }
 //============================================================================//
 /*!
+ * @brief Utility function for attaching processing commands to the observation
+ *        structure.
+ *
+ * @param[in] iobs      C indexed observation number.
+ * @param[in] ncmds     Number of processing commands to attach to data
+ *                      structure.
+ * @param[in] cmds      Commands to attach to data structure [ncmds].
+ * 
+ * @param[in,out] data  On input contains the maximum number of observations
+ *                      allowed.
+ *                      On exit data->cmds[iobs] contains the corresponding
+ *                      data commands.
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
+int tdsearch_data_attachCommandsToObservation(const int iobs,
+                                              const int ncmds,
+                                              const char **cmds,
+                                              struct tdSearchData_struct *data)
+{
+    const char *fcnm = "tdsearch_data_attachCommandsToObservation\0";
+    int i;
+    size_t lenos;
+    // Make sure iobs is in bounds 
+    if (iobs < 0 || iobs >= data->maxobs)
+    {
+        log_errorF("%s: Error iobs is out of bounds [0,%d]\n",
+                   fcnm, iobs, data->maxobs);
+        return -1;
+    }
+    // Try to handle space allocation if not already done
+    if (data->cmds == NULL && data->maxobs > 0)
+    {
+        data->cmds = (struct tdSearchDataProcessingCommands_struct *)
+                     calloc((size_t) data->maxobs,
+                        sizeof(struct tdSearchDataProcessingCommands_struct));
+    }
+    if (data->cmds == NULL)
+    {
+        log_errorF("%s: Error data->cmds is NULL\n", fcnm);
+        return -1; 
+    }
+    if (ncmds == 0){return 0;}
+    data->cmds[iobs].ncmds = ncmds;
+    data->cmds[iobs].cmds = (char **) calloc((size_t) ncmds, sizeof(char *));
+    for (i=0; i<ncmds; i++)
+    {
+        lenos = strlen(cmds[i]);
+        data->cmds[iobs].cmds[i] = (char *) calloc(lenos+1, sizeof(char));
+        strcpy(data->cmds[iobs].cmds[i], cmds[i]); 
+    }
+    return 0;
+}
+//============================================================================//
+/*!
  * @brief Releases memory on the data structure.
  *
  * @param[out] data    On exit all memory has been freed and all variables on
@@ -188,7 +284,7 @@ ERROR:;
  */
 int tdsearch_data_free(struct tdSearchData_struct *data)
 {
-    int ierr, k;
+    int i, ierr, k;
     if (data->maxobs > 0 && data->obs != NULL)
     {
         for (k=0; k<data->nobs; k++)
@@ -196,6 +292,21 @@ int tdsearch_data_free(struct tdSearchData_struct *data)
             ierr = sacio_free(&data->obs[k]);
         }
         free(data->obs);
+    }
+    if (data->cmds != NULL)
+    {
+        for (k=0; k<data->nobs; k++)
+        {
+            if (data->cmds[k].cmds != NULL)
+            {
+                for (i=0; i<data->cmds[k].ncmds; i++)
+                {
+                    free(data->cmds[k].cmds[i]);
+                }
+                free(data->cmds[k].cmds);
+            }
+        }
+        free(data->cmds);
     }
     memset(data, 0, sizeof(struct tdSearchData_struct));
     return 0;
@@ -489,16 +600,28 @@ ERROR:;
     return ierr;
 }
 //============================================================================//
+/*!
+ * @brief Some ad-hoc rules for fixing the data processing commands. 
+ *
+ */
 char **tdsearch_data_modifyProcessingCommands(
     const int ncmds, const char **cmds,
-    const struct sacData_struct data)
+    const double cut0, const double cut1, const double targetDt,
+    const struct sacData_struct data,
+    int *ierr)
 {
+    const char *fcnm = "tdsearch_data_modifyProcessingCommands\0";
     char **newCmds, cwork[MAX_CMD_LEN], cmd1[64], cmd2[64];
+    double dt0;
     size_t lenos;
     int i;
+    const bool laaFilter = true; // anti-alias filter in decimation
+    const bool lfixPhase = true; // don't let anti-alias filter mess up picks
+    *ierr = 0;
     newCmds = NULL;
     if (ncmds < 1){return newCmds;}
     // Modify the problematic commands
+    *ierr = sacio_getFloatHeader(SAC_FLOAT_DELTA, data.header, &dt0);
     newCmds = (char **) calloc((size_t) ncmds, sizeof(char *));
     for (i=0; i<ncmds; i++)
     {
@@ -509,6 +632,33 @@ char **tdsearch_data_modifyProcessingCommands(
         if (strcasecmp(cmds[i], "transfer\0") == 0)
         {
 
+        }
+        if (strcasecmp(cmds[i], "decimate\0") == 0)
+        {
+            *ierr = decimate_createDesignCommandsWithDT(dt0, targetDt,
+                                                        laaFilter, lfixPhase,
+                                                        cwork);
+            if (*ierr != 0)
+            {
+                log_errorF("%s: Couldn't modify the decimate command\n", fcnm);
+                break;
+            }
+            dt0 = targetDt;
+        }
+        if (strcasecmp(cmds[i], "downsample\0") == 0)
+        {
+            *ierr = downsample_downsampleTargetSamplingPeriodToString(
+                       dt0, targetDt, cwork);
+            if (*ierr != 0)
+            {
+                log_errorF("%s: Couldn't modify downsample command\n", fcnm);
+                break;
+            }
+        }
+        else
+        {
+            newCmds[i] = (char *) calloc(lenos+1, sizeof(char));
+            strcpy(newCmds[i], cmds[i]);
         }
     }
     return newCmds;

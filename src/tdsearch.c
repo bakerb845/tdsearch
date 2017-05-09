@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     char iniFile[PATH_MAX];
     int ierr, provided;
     // Fire up MPI 
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+    //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
     // Initialize
     memset(iniFile, 0, PATH_MAX*sizeof(char));
     memset(&event, 0, sizeof(struct tdSearchEventParms_struct));
@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
     ierr = tdsearch_data_free(&data);
     iscl_finalize();
     // Done with MPI
-    MPI_Finalize();
+    //MPI_Finalize();
     return 0;
 }
 

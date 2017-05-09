@@ -9,6 +9,10 @@ extern "C"
 int tdsearch_data_free(struct tdSearchData_struct *data);
 int tdsearch_data_initializeFromFile(const char *iniFile,
                                      struct tdSearchData_struct *data);
+int tdsearch_data_attachCommandsToObservation(const int iobs,
+                                              const int ncmds,
+                                              const char **cmds,
+                                              struct tdSearchData_struct *data);
 int tdsearch_data_readFiles(const int nfiles,
                             const char **sacfls,
                             const char **pzfls,
@@ -27,11 +31,11 @@ int tdsearch_data_setPPickTimeFromTheoreticalTime(
     const enum sacHeader_enum pickHeaderTime,
     const enum sacHeader_enum pickHeaderName,
     struct tdSearchData_struct *data);
-int tdsearch_data_setPickTime(const double pickTime,
-                              const char *phaseName,
-                              const enum sacHeader_enum pickHeaderTime,
-                              const enum sacHeader_enum pickHeaderName,
-                              struct sacData_struct *data);
+char **tdsearch_data_modifyProcessingCommands(
+    const int ncmds, const char **cmds,
+    const double cut0, const double cut1, const double targetDt,
+    const struct sacData_struct data,
+    int *ierr);
 
 #ifdef __cplusplus
 }

@@ -35,9 +35,10 @@ ADD_LIBRARY(tdSearch_shared SHARED ${SRCS})
 ADD_EXECUTABLE(tdsearch src/tdsearch.c)
 
 SET(LINK_LIB_ALL ${PARMT_LIBRARY} ${COMPEARTH_LIBRARY}
-                 ${CPS_LIBRARY} ${SACIO_LIBRARY} ${ISCL_LIBRARY}
-                 -Wl,--start-group ${MKL_LIBRARY} -Wl,--end-group
-                 ${TTIMES_LIBRARY} ${H5_LIBRARY} ${INIPARSER_LIBRARY} ${MPI_C_LIBRARIES}
+                 ${CPS_LIBRARY} ${SACIO_LIBRARY} ${ISPL_LIBRARY} ${ISCL_LIBRARY}
+                 -Wl,--start-group ${MKL_LIBRARY} -Wl,--end-group ${IPP_LIBRARY}
+                 ${TTIMES_LIBRARY} ${H5_LIBRARY}
+                 ${INIPARSER_LIBRARY} ${MPI_C_LIBRARIES}
                  -lm -ldl -lpthread -lpng)
 #TARGET_LINK_LIBRARIES(tdSearch tdSearch_shared) 
 SET_TARGET_PROPERTIES(tdsearch PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) 

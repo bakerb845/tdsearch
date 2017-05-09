@@ -32,9 +32,16 @@ struct tdSearchGridSearchParms_struct
     char pad[3];
 };
 
+struct tdSearchDataProcessingCommands_struct
+{
+    char **cmds;   /*!< String commands for proessing data [ncmds]. */
+    int ncmds;     /*!< Number of data processing commands. */
+};
+
 struct tdSearchData_struct
 {
     struct sacData_struct *obs; /*!< Observed waveforms [maxobs]. */
+    struct tdSearchDataProcessingCommands_struct *cmds;
     int nobs;   /*!< Number of observations. */
     int maxobs; /*!< Maximum space allotted to obs. */
 };

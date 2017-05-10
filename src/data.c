@@ -6,6 +6,7 @@
 #include "ispl/process.h"
 #include "sacio.h"
 #include "ttimes.h"
+#include "iscl/array/array.h"
 #include "iscl/geodetic/geodetic.h"
 #include "iscl/log/log.h"
 #include "iscl/memory/memory.h"
@@ -829,75 +830,225 @@ ERROR:;
     return ierr;
 }
 //============================================================================//
-/*!
- * @brief Sets the pick time on the SAC header.
- *
- * @param[in] pickTime        Epochal time of phase arrival (UTC-seconds).
- * @param[in] phaseName       Name of phase.
- * @param[in] pickHeaderTime  Header variable identifier to hold the pick
- *                            time.  Likely SAC_float_A for a primary arrival,
- *                            but also may be SAC_FLOAT_T0-SAC_FLOAT_T9
- *                            for other phases.
- * @param[in] pickHeaderName  Header variable identifer to hold the phase name.
- *                            Likely SAC_CHAR_KA for a primary arrival,
- *                            but also may be SAC_CHAR_KT0-SAC_CHAR_KT9
- *                            for other phases.
- * 
- * @param[out] data           SAC data structure on which the phase pick was
- *                            set.
- *
- * @result 0 indicates success.
- *
- * @author Ben Baker, ISTI
- */
-/*
-int tdsearch_data_setPickTime(const double pickTime,
-                              const char *phaseName,
-                              const enum sacHeader_enum pickHeaderTime,
-                              const enum sacHeader_enum pickHeaderName,
-                              struct sacData_struct *data)
+int tdsearch_data_writeFiles(const char *outdir,
+                             const char *suffix,
+                             const struct tdSearchData_struct data)
 {
-    const char *fcnm = "tdsearch_data_setPickTime\0";
-    double dt, epoch, p;
-    int ierr, npts;
-    // Get the trace epochal start time 
-    ierr = sacio_getEpochalStartTime(data->header, &epoch);
+    const char *fcnm = "tdsearch_data_writeFiles\0";
+    char fname[PATH_MAX], root[PATH_MAX], kcmpnm[8],
+         knetwk[8], khole[8], kstnm[8];
+    int ierr, k;
+    size_t lendir;
+    bool lsuffix;
+    // Set the root output directory
+    lendir = 0;
+    memset(root, 0, PATH_MAX*sizeof(char));
+    if (outdir == NULL)
+    {
+        strcpy(root, "./\0");
+    }
+    else
+    {
+        lendir = strlen(outdir);
+        if (lendir > 0)
+        {
+            strcpy(root, outdir);
+            if (root[lendir-1] != '/'){root[lendir] = '/';}
+        }
+        else
+        {
+            strcpy(root, "./\0");
+        }
+    }
+    ierr = os_makedirs(root);
     if (ierr != 0)
     {
-        log_errorF("%s: Failed to get start time\n", fcnm);
-        return -1; 
-    }
-    sacio_getIntegerHeader(SAC_INT_NPTS, data->header, &npts);
-    sacio_getFloatHeader(SAC_FLOAT_DELTA, data->header, &dt);
-    if (pickTime < epoch)
-    {
-        log_warnF("%s: Pick time is before trace start time\n", fcnm);
-    }
-    if (pickTime > epoch + (double) (npts - 1)*dt)
-    {
-        log_warnF("%s: Pick time comes in after trace end time\n", fcnm);
-    }
-    // Make it a relative time
-    p = pickTime - epoch; 
-    sacio_setFloatHeader(pickHeaderTime, p, &data->header); 
-    sacio_setCharacterHeader(pickHeaderName, phaseName, &data->header);
-    return 0;
-}
-*/
-//============================================================================//
-/*
-int tdsearch_data_setObservation(const int iobs,
-                                 const struct sacData_struct obs,
-                                 struct tdSearchData_struct *data) 
-{
-    const char *fcnm = "tdsearch_data_setObservation\0";
-    if (iobs > data->maxobs)
-    {
-        log_errorF("%s: Insufficient space; iobs > data->maxobs %d %d\n",
-                  fcnm, iobs, data->maxobs);
+        log_errorF("%s: Error making output directory: %s\n", fcnm, root);
         return -1;
     }
-    sacio_copy(obs, &data->obs[iobs]);
+    lsuffix = false;
+    if (suffix != NULL)
+    {
+        if (strlen(suffix) > 0){lsuffix = true;}
+    }
+    for (k=0; k<data.nobs; k++)
+    {
+        memset(fname, 0, PATH_MAX*sizeof(char));
+        sacio_getCharacterHeader(SAC_CHAR_KNETWK, data.obs[k].header, knetwk);
+        sacio_getCharacterHeader(SAC_CHAR_KSTNM,  data.obs[k].header, kstnm);
+        sacio_getCharacterHeader(SAC_CHAR_KCMPNM, data.obs[k].header, kcmpnm);
+        sacio_getCharacterHeader(SAC_CHAR_KHOLE,  data.obs[k].header, khole);
+        if (lsuffix)
+        {
+            sprintf(fname, "%s%s.%s.%s.%s.%s.SAC",
+                    root, knetwk, kstnm, kcmpnm, khole, suffix);
+        }
+        else
+        {
+            sprintf(fname, "%s%s.%s.%s.%s.SAC",
+                    root, knetwk, kstnm, kcmpnm, khole); 
+        }
+        sacio_writeTimeSeriesFile(fname, data.obs[k]);
+    }
     return 0;
 }
-*/
+//============================================================================//
+/*!
+ * @brief Processes the data according to the commands on the data data
+ *        structure.
+ */
+int tdsearch_data_process(struct tdSearchData_struct *data)
+{
+    const char *fcnm = "tdsearch_data_process\0";
+    struct serialCommands_struct *commands;
+    double dt, dt0, dtSave, epoch, epoch0, time, *ycopy;
+    int *nyAll, i, i0, ierr, k, npts0, nq, nwork;
+    bool lnewDt, lnewStartTime;
+    const int nTimeVars = 12;
+    const enum sacHeader_enum timeVars[12]
+       = {SAC_FLOAT_A, SAC_FLOAT_O, 
+          SAC_FLOAT_T0, SAC_FLOAT_T1, SAC_FLOAT_T2, SAC_FLOAT_T3,
+          SAC_FLOAT_T4, SAC_FLOAT_T5, SAC_FLOAT_T6, SAC_FLOAT_T7,
+          SAC_FLOAT_T8, SAC_FLOAT_T9};
+    // No data
+    ycopy = NULL;
+    nyAll = NULL;
+    if (data->nobs < 1){return 0;}
+    commands = (struct serialCommands_struct *)
+               calloc((size_t)data->nobs, sizeof(struct serialCommands_struct));
+    // Set the processing commands and the data
+    for (k=0; k<data->nobs; k++)
+    {
+        ierr = process_stringsToSerialCommandsOptions(data->cmds[k].ncmds,
+                                      (const char **) data->cmds[k].cmds,
+                                      &commands[k]);
+        if (ierr != 0)
+        {
+            log_errorF("%s: Error setting serial command string\n", fcnm);
+            goto ERROR;
+        }
+        process_setSerialCommandsData64f(data->obs[k].npts,
+                                         data->obs[k].data, 
+                                         &commands[k]);
+    }
+    // Process the data
+    ierr = process_applyMultipleSerialCommands(data->nobs, commands);
+    if (ierr != 0)
+    {
+        log_errorF("%s: Error applying serial commands chains to data\n", fcnm);
+        goto ERROR;
+    }
+    // Get the workspace
+    nwork =-1;
+    nyAll = memory_calloc32i(data->nobs);
+    for (k=0; k<data->nobs; k++)
+    {
+        process_getSerialCommandsData64f(commands[k], -1, &nyAll[k], NULL); 
+        nwork = MAX(nwork, nyAll[k]);
+    }
+    ycopy = memory_calloc64f(nwork);
+    // Move the results back onto data
+    for (k=0; k<data->nobs; k++)
+    {
+        lnewDt = false;
+        lnewStartTime = false;
+        // Loop through commands and check if dt or npts changed
+        ierr = sacio_getEpochalStartTime(data->obs[k].header, &epoch0);
+        if (ierr != 0)
+        {
+            log_errorF("%s: Failed to get start time of trace\n", fcnm);
+            goto ERROR;
+        }
+        epoch = epoch0;
+        sacio_getFloatHeader(SAC_FLOAT_DELTA, data->obs[k].header, &dt0);
+        sacio_getIntegerHeader(SAC_INT_NPTS, data->obs[k].header, &npts0);
+        dt = dt0;
+        for (i=0; i<commands->ncmds; i++)
+        {
+            if (commands[k].commands[i].type == CUT_COMMAND)
+            {
+                i0 = commands[k].commands[i].cut.i0;
+                epoch = epoch + (double) i0*dt;
+                lnewStartTime = true;
+            }
+            if (commands[k].commands[i].type == DOWNSAMPLE_COMMAND)
+            {
+                nq = commands[k].commands[i].downsample.nq;
+                dt = dt*(double) nq;
+                lnewDt = true;
+            }
+            if (commands[k].commands[i].type == DECIMATE_COMMAND)
+            {
+                nq = commands[k].commands[i].decimate.nqAll;
+                dt = dt*(double) nq;
+                lnewDt = true;
+            }
+        }
+        // Extract the data - here a resize is required
+        if (nyAll[k] != npts0)
+        {
+            ierr = process_getSerialCommandsData64f(commands[k], nwork,
+                                                    &nyAll[k], ycopy);
+            if (ierr != 0)
+            {
+                log_errorF("%s: Error extracting data onto ycopy\n", fcnm);
+                goto ERROR;
+            }
+            sacio_freeData(&data->obs[k]);
+            if (nyAll[k] > 0)
+            {
+                data->obs[k].data = sacio_malloc64f(nyAll[k]);
+                data->obs[k].npts = nyAll[k];
+                sacio_setIntegerHeader(SAC_INT_NPTS, nyAll[k],
+                                       &data->obs[k].header);
+                ierr = array_copy64f_work(nyAll[k], ycopy, data->obs[k].data);
+            }
+        }
+        // Otherwise just copy back onto the data structure
+        else
+        {
+            ierr = process_getSerialCommandsData64f(commands[k], nwork,
+                                                    &nyAll[k],
+                                                    data->obs[k].data);
+            if (ierr != 0)
+            {
+                log_errorF("%s: Error extracting data\n", fcnm);
+                goto ERROR;
+            }
+        }
+        // Update the times
+        if (lnewStartTime)
+        {
+            // Update the picks
+            for (i=0; i<nTimeVars; i++)
+            {
+                ierr = sacio_getFloatHeader(timeVars[i], data->obs[k].header,
+                                            &time);
+                if (ierr == 0)
+                {
+                    time = time + epoch0; // Turn to real time
+                    time = time - epoch;  // Make relative to new time 
+                    sacio_setFloatHeader(timeVars[i], time,
+                                         &data->obs[k].header);
+                }
+                ierr = 0;
+            }
+            sacio_setEpochalStartTime(epoch, &data->obs[k].header);
+        }
+        // Update the sampling period
+        if (lnewDt)
+        {
+            sacio_setFloatHeader(SAC_FLOAT_DELTA, dt, &data->obs[k].header);
+        }
+    }
+    // Release memory
+ERROR:;
+    for (k=0; k<data->nobs; k++)
+    {
+        process_freeSerialCommandsData(&commands[k]);
+    }
+    memory_free64f(&ycopy);
+    memory_free32i(&nyAll);
+    free(commands);
+    return ierr;
+}

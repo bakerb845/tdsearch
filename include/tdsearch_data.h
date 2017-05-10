@@ -31,11 +31,13 @@ int tdsearch_data_setPPickTimeFromTheoreticalTime(
     const enum sacHeader_enum pickHeaderTime,
     const enum sacHeader_enum pickHeaderName,
     struct tdSearchData_struct *data);
-char **tdsearch_data_modifyProcessingCommands(
-    const int ncmds, const char **cmds,
+int tdsearch_data_writeFiles(const char *outdir,
+                             const char *suffix,
+                             const struct tdSearchData_struct data);
+int tdsearch_data_process(struct tdSearchData_struct *data);
+int tdsearch_data_modifyProcessingCommands(
     const double cut0, const double cut1, const double targetDt,
-    const struct sacData_struct data,
-    int *ierr);
+    struct tdSearchData_struct *data);
 
 #ifdef __cplusplus
 }

@@ -70,9 +70,12 @@ int main(int argc, char *argv[])
     //------------------------------------------------------------------------//
     // JEFF - here you might consider breaking this and letting the user work //
     // interactively process the data and make picks.  But I'm going to       //
-    // automatically process the data.                                        //
+    // automatically process the data.  To do that I first need to modify the //
+    // generic processing commands to conform with the data.                  //
     //------------------------------------------------------------------------//
-
+ tdsearch_data_modifyProcessingCommands(-5.0, 15.0, 0.25, &data);
+tdsearch_data_process(&data);
+tdsearch_data_writeFiles("prepData", NULL, data);
     // Generate Green's functions
 
     // Free space

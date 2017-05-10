@@ -1,0 +1,35 @@
+* **********************************
+* NETWORK   (KNETWK): II
+* STATION    (KSTNM): KDAK
+* LOCATION   (KHOLE): 00
+* CHANNEL   (KCMPNM): BHZ
+* CREATED           : 2017-01-28T19:03:30
+* START             : 2011-07-02T00:00:00
+* END               : 2599-12-31T23:59:59
+* DESCRIPTION       : Kodiak Island, Alaska, USA
+* LATITUDE          : 57.782800 
+* LONGITUDE         : -152.583500
+* ELEVATION         : 152.0  
+* DEPTH             : 88.0 
+* DIP               : 0.0  
+* AZIMUTH           : 0.0  
+* SAMPLE RATE       : 20.0
+* INPUT UNIT        : M
+* OUTPUT UNIT       : COUNTS
+* INSTTYPE          : Geotech KS-54000 Borehole Seismometer
+* INSTGAIN          : 2.172000e+03 (M/S)
+* COMMENT           : N/A
+* SENSITIVITY       : 3.610440e+09 (M/S)
+* A0                : 7.863569e+04
+* **********************************
+ZEROS	3
+	+0.000000e+00	+0.000000e+00
+	+0.000000e+00	+0.000000e+00
+	+0.000000e+00	+0.000000e+00
+POLES	5
+	-4.799985e-03	+0.000000e+00
+	-7.319905e-02	+0.000000e+00
+	-2.332279e+01	+2.728534e+01
+	-2.332279e+01	-2.728534e+01
+	-5.943235e+01	+0.000000e+00
+CONSTANT	+2.839094e+14

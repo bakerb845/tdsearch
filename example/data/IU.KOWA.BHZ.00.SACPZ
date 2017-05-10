@@ -1,0 +1,39 @@
+* **********************************
+* NETWORK   (KNETWK): IU
+* STATION    (KSTNM): KOWA
+* LOCATION   (KHOLE): 00
+* CHANNEL   (KCMPNM): BHZ
+* CREATED           : 2017-01-28T19:03:30
+* START             : 2016-02-01T19:00:00
+* END               : 2599-12-31T23:59:59
+* DESCRIPTION       : Kowa, Mali
+* LATITUDE          : 14.496700 
+* LONGITUDE         : -4.014000  
+* ELEVATION         : 316.3  
+* DEPTH             : 5.0  
+* DIP               : 0.0  
+* AZIMUTH           : 0.0  
+* SAMPLE RATE       : 40.0
+* INPUT UNIT        : M
+* OUTPUT UNIT       : COUNTS
+* INSTTYPE          : Trillium 240 broad band
+* INSTGAIN          : 1.182000e+03 (M/S)
+* COMMENT           : N/A
+* SENSITIVITY       : 1.983070e+09 (M/S)
+* A0                : 2.319490e+09
+* **********************************
+ZEROS	5
+	+0.000000e+00	+0.000000e+00
+	+0.000000e+00	+0.000000e+00
+	+0.000000e+00	+0.000000e+00
+	-1.080000e+02	+0.000000e+00
+	-1.610000e+02	+0.000000e+00
+POLES	7
+	-1.780210e-02	+1.778900e-02
+	-1.780210e-02	-1.778900e-02
+	-1.730000e+02	+0.000000e+00
+	-1.960000e+02	+2.310000e+02
+	-1.960000e+02	-2.310000e+02
+	-7.320000e+02	+1.415000e+03
+	-7.320000e+02	-1.415000e+03
+CONSTANT	+4.599711e+18

@@ -1,0 +1,39 @@
+* **********************************
+* NETWORK   (KNETWK): II
+* STATION    (KSTNM): OBN
+* LOCATION   (KHOLE): 00
+* CHANNEL   (KCMPNM): BHZ
+* CREATED           : 2017-01-28T19:03:30
+* START             : 2012-06-05T00:00:00
+* END               : 2599-12-31T23:59:59
+* DESCRIPTION       : Obninsk, Russia
+* LATITUDE          : 55.114600 
+* LONGITUDE         : 36.567400  
+* ELEVATION         : 160.0  
+* DEPTH             : 30.0 
+* DIP               : 0.0  
+* AZIMUTH           : 0.0  
+* SAMPLE RATE       : 20.0
+* INPUT UNIT        : M
+* OUTPUT UNIT       : COUNTS
+* INSTTYPE          : Streckeisen STS-1V/VBB Seismometer
+* INSTGAIN          : 2.463980e+03 (M/S)
+* COMMENT           : N/A
+* SENSITIVITY       : 3.901560e+09 (M/S)
+* A0                : 5.081478e+01
+* **********************************
+ZEROS	6
+	+0.000000e+00	+0.000000e+00
+	+0.000000e+00	+0.000000e+00
+	+0.000000e+00	+0.000000e+00
+	-7.853975e+01	+0.000000e+00
+	-1.525041e-01	+0.000000e+00
+	-1.525041e-01	+0.000000e+00
+POLES	6
+	-1.237441e-02	+1.223850e-02
+	-1.237441e-02	-1.223850e-02
+	-1.526115e-01	+0.000000e+00
+	-1.526115e-01	+0.000000e+00
+	-4.194142e+01	+4.723041e+01
+	-4.194142e+01	-4.723041e+01
+CONSTANT	+1.982569e+11

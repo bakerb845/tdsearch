@@ -70,3 +70,11 @@ cmake ./ -DCMAKE_BUILD_TYPE=DEBUG \
 -DINIPARSER_INCLUDE_DIR=/home/bakerb25/C/iniparser/src \
 -DINIPARSER_LIBRARY=/home/bakerb25/C/iniparser/libiniparser.a
 
+--------------------------------------------------------------------------------
+
+In-code documentation can be generated with doxygen by typing:
+
+doxygen Doxyfile
+
+in the root source directory.
+

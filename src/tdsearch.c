@@ -14,6 +14,7 @@ int main(int argc, char *argv[])
     struct tdSearchData_struct data;
     struct tdSearch_struct tds;
     struct tdSearchEventParms_struct event;
+    struct tdSearchGreens_struct grns;
     char iniFile[PATH_MAX];
     int ierr, provided;
     // Fire up MPI 
@@ -45,6 +46,14 @@ int main(int argc, char *argv[])
     if (ierr != 0)
     {
         printf("%s: Failed to read the data\n", PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
+    // Initialize the forward modeling parameters for hudson and the
+    // source time function to be used in hpulse
+    ierr =  tdsearch_greens_initializeParametersFromIniFile(iniFile, &grns);
+    if (ierr != 0)
+    {
+        printf("%s: Failed to read hudson/hpulse parameters\n", PROGRAM_NAME);
         return EXIT_FAILURE;
     }
     // Set the event information on the data

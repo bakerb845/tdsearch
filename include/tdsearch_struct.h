@@ -1,6 +1,7 @@
 #ifndef TDSEARCH_STRUCT_H__
 #define TDSEARCH_STRUCT_H__ 1
 #include <sacio.h>
+#include <cps.h>
 #include <compearth.h>
 
 struct tdSearchEventParms_struct
@@ -20,17 +21,29 @@ struct tdSearchEventParms_struct
     char pad[4];
 };
 
-struct tdSearchGridSearchParms_struct
+struct tdsearchHudsonParms_struct
 {
-    double *tstar;           /*!< t* in grid search. */
-    double *depths;          /*!< Depths (km) in grid search. */
-    double maxShiftTime;     /*!< Max allowable shift time allowable (s). */
-    int ntstar;              /*!< Number of t*'s. */
-    int ndepth;              /*!< Number of depths. */
-    bool luseMaxShiftTime;   /*!< If true then the max-shift time is used in
-                                  the inversion. */
-    char pad[3];
+    struct hudson96_parms_struct hudson96Parms; /*!< Hudson96 modeling paramters. */
+    struct hpulse96_parms_struct hpulse96Parms; /*!< Hpulse96 modeling parmaeters. */
 };
+
+struct tdSearchGreens_struct
+{
+    struct tdsearchHudsonParms_struct
+         modelingParms; /*!< Waveform modeling parameters */
+};
+
+//struct tdSearchGridSearchParms_struct
+//{
+//    double *tstar;           /*!< t* in grid search. */
+//    double *depths;          /*!< Depths (km) in grid search. */
+//    double maxShiftTime;     /*!< Max allowable shift time allowable (s). */
+//    int ntstar;              /*!< Number of t*'s. */
+//    int ndepth;              /*!< Number of depths. */
+//    bool luseMaxShiftTime;   /*!< If true then the max-shift time is used in
+//                                  the inversion. */
+//    char pad[3];
+//};
 
 struct tdSearchDataProcessingCommands_struct
 {

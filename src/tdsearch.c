@@ -74,7 +74,12 @@ int main(int argc, char *argv[])
     // generic processing commands to conform with the data.                  //
     //------------------------------------------------------------------------//
  tdsearch_data_modifyProcessingCommands(-5.0, 15.0, 0.25, &data);
-tdsearch_data_process(&data);
+    ierr = tdsearch_data_process(&data);
+    if (ierr != 0)
+    {
+        printf("%s: Failed to process data!\n", PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
 tdsearch_data_writeFiles("prepData", NULL, data);
     // Generate Green's functions
 

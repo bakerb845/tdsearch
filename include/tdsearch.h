@@ -4,5 +4,6 @@
 #include "tdsearch_data.h"
 #include "tdsearch_event.h"
 #include "tdsearch_gridsearch.h"
+#include "tdsearch_greens.h"
 #include "tdsearch_hudson.h"
 #endif

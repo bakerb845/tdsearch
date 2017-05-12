@@ -21,16 +21,57 @@ struct tdSearchEventParms_struct
     char pad[4];
 };
 
-struct tdsearchHudsonParms_struct
+struct tdSearchGreens_struct
 {
-    struct hudson96_parms_struct hudson96Parms; /*!< Hudson96 modeling paramters. */
-    struct hpulse96_parms_struct hpulse96Parms; /*!< Hpulse96 modeling parmaeters. */
+    struct sacData_struct 
+        *grns;            /*!< Green's functions.  These are packed
+                               in row major format with the final row
+                               corresponding to the
+                               \f$ \{Gxx, Gyy, Gzz, Gxy, Gxz, Gyz\}  \f$
+                               Green's functions which are
+                               in the NED coordinate system and scaled so that
+                               they can be applied to a moment tensor specified
+                               in Newton-meters [nobs x ndepth x ntstar x 6]. */
+    int ntstar;
+    int ndepth;
+    int nobs;
 };
 
-struct tdSearchGreens_struct
+struct tdsearchHudsonParms_struct
+{
+    struct hudson96_parms_struct
+         hudson96Parms; /*!< Hudson96 modeling paramters. */
+    struct hpulse96_parms_struct
+        hpulse96Parms; /*!< Hpulse96 modeling parmaeters. */
+};
+
+struct tdSearchHudson_struct
 {
     struct tdsearchHudsonParms_struct
          modelingParms; /*!< Waveform modeling parameters */
+    struct sacData_struct *grns;
+    char srcModelName[PATH_MAX]; /*!< Name of source model. */
+    char crust1Dir[PATH_MAX];    /*!< Name of crust1.0 directory. */
+    double *tstars;     /*!< t*'s at which to perform modeling [nstar]. */
+    double *depths;     /*!< Source depths (km) at which to perform modeling
+                             [ndepth]  */
+    //struct vmodel_struct
+    //       *teleModels; /*!< Teleseismic source models (ak135). [ndists] */
+    //struct vmodel_struct
+    //       *recvModels; /*!< Receiver source models [ndists]. */
+    //struct vmodel_struct
+    //       srcModels;   /*!< Source model. */
+    int ntstar;         /*!< Number of t*'s. */
+    int ndepth;         /*!< Number of depths. */
+    int nobs;           /*!< Number of observations. */
+    bool luseCrust1;    /*!< If true then use crust1.0 models at source
+                             and receiver.  Otherwise use ak135.  */
+    bool luseSrcModel;  /*!< If true then use the local source model
+                             (srcModelName).  This supersedes the local
+                             source model if luseCrust1 is true.  If
+                             luseCrust1 and luseSrcModel are both false
+                             then the program will default to ak135. */ 
+    
 };
 
 //struct tdSearchGridSearchParms_struct
@@ -55,8 +96,9 @@ struct tdSearchData_struct
 {
     struct sacData_struct *obs; /*!< Observed waveforms [maxobs]. */
     struct tdSearchDataProcessingCommands_struct *cmds;
-    int nobs;   /*!< Number of observations. */
-    int maxobs; /*!< Maximum space allotted to obs. */
+    bool *lskip; /*!< If true then skip the [iobs]'th waveform. */
+    int nobs;    /*!< Number of observations. */
+    int maxobs;  /*!< Maximum space allotted to obs. */
 };
 
 struct tdSearch_struct

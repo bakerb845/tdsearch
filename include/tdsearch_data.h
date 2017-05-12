@@ -22,6 +22,8 @@ int tdsearch_data_setEventInformation(const double evla,
                                       const double evdp,
                                       const double evtime,
                                       struct tdSearchData_struct *data);
+int tdsearch_data_verifyDistances(const double dmin, const double dmax,
+                                  struct tdSearchData_struct *data);
 int tdsearch_data_computeTheoreticalPPickTimes(
     const char *dirnm, const char *model,
     const struct tdSearchData_struct data,

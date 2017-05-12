@@ -5,7 +5,10 @@
 #include <mpi.h>
 #include "tdsearch.h"
 #include "iscl/iscl/iscl.h"
+#include "iscl/time/time.h"
 
+#define DMIN_DIST 30.0
+#define DMAX_DIST 95.0
 #define PROGRAM_NAME "tdsearch"
 static int parseCommands(int argc, char *argv[], char iniFile[PATH_MAX]);
 
@@ -14,7 +17,7 @@ int main(int argc, char *argv[])
     struct tdSearchData_struct data;
     struct tdSearch_struct tds;
     struct tdSearchEventParms_struct event;
-    struct tdSearchGreens_struct grns;
+    struct tdSearchHudson_struct ffGrns;
     char iniFile[PATH_MAX];
     int ierr, provided;
     // Fire up MPI 
@@ -28,6 +31,7 @@ int main(int argc, char *argv[])
     // Parse the input commands
     parseCommands(argc, argv, iniFile);
     // Initialize from the ini file - event information
+    printf("%s: Initializing from %s...\n", PROGRAM_NAME, iniFile);
     ierr = tdsearch_event_initializeFromIniFile(iniFile, &event);
     if (ierr != 0)
     {
@@ -50,7 +54,7 @@ int main(int argc, char *argv[])
     }
     // Initialize the forward modeling parameters for hudson and the
     // source time function to be used in hpulse
-    ierr =  tdsearch_greens_initializeParametersFromIniFile(iniFile, &grns);
+    ierr =  tdsearch_hudson_initializeParametersFromIniFile(iniFile, &ffGrns);
     if (ierr != 0)
     {
         printf("%s: Failed to read hudson/hpulse parameters\n", PROGRAM_NAME);
@@ -66,6 +70,13 @@ int main(int argc, char *argv[])
         printf("%s: Failed to set event info\n", PROGRAM_NAME);
         return EXIT_FAILURE;
     }
+    // Now that I have the event information verify the data are in bounds
+    ierr = tdsearch_data_verifyDistances(DMIN_DIST, DMAX_DIST, &data);
+    if (ierr != 0)
+    {
+        printf("%s: Error checking distances\n", PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
     // Set the theoretical pick times on KA and A
     ierr = tdsearch_data_setPPickTimeFromTheoreticalTime(NULL, "ak135",
                                                          SAC_FLOAT_A,
@@ -76,12 +87,24 @@ int main(int argc, char *argv[])
         printf("%s: Failed to set theoretical pick times\n", PROGRAM_NAME);
         return EXIT_FAILURE;
     }
+    // Set the forward modeling grid on ffGrns
+    ierr =  tdsearch_hudson_setGrid(tds.ntstar, tds.tstar,
+                                    tds.ndepth, tds.depths,
+                                    &ffGrns);
+    if (ierr != 0)
+    {
+        printf("%s: Failed to set forward modeling grid on ffGrns\n",
+               PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
     //------------------------------------------------------------------------//
     // JEFF - here you might consider breaking this and letting the user work //
     // interactively process the data and make picks.  But I'm going to       //
     // automatically process the data.  To do that I first need to modify the //
     // generic processing commands to conform with the data.                  //
     //------------------------------------------------------------------------//
+    printf("%s: Processing data...\n", PROGRAM_NAME);
+    time_tic();
  tdsearch_data_modifyProcessingCommands(-5.0, 15.0, 0.25, &data);
     ierr = tdsearch_data_process(&data);
     if (ierr != 0)
@@ -89,8 +112,28 @@ int main(int argc, char *argv[])
         printf("%s: Failed to process data!\n", PROGRAM_NAME);
         return EXIT_FAILURE;
     }
+    printf("%s: Processing time %4.2f (s)\n", PROGRAM_NAME, time_toc());
 tdsearch_data_writeFiles("prepData", NULL, data);
-    // Generate Green's functions
+    // Compute the fundamental fault Green's functions (e.g., ZDD, ZDS, etc.).
+    // JEFF - This would be like what you read from the h5 Green's functions
+    // archive in that they have no context to the data other than they are
+    // at an appropriate distance.
+    printf("%s: Computing fundamental-fault Green's functions...\n",
+           PROGRAM_NAME);
+    time_tic();
+    ierr = tdsearch_hudson_computeGreensFF(data, &ffGrns);
+    if (ierr != 0)
+    {
+        printf("%s: Error computing ff Green's functions\n", PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
+    printf("%s: Green's functions computation time %5.2f (seconds)\n",
+           PROGRAM_NAME, time_toc());
+    // Rotate the fundamental faults into the observation frame and give 
+    // these Green's functions some context w.r.t. to the data
+tdsearch_greens_ffGreensToGreens(data, ffGrns);
+    // I'm done with the fundamental faults. 
+    ierr = tdsearch_hudson_free(&ffGrns);
 
     // Free space
     ierr = tdsearch_gridSearch_free(&tds);

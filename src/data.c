@@ -319,6 +319,7 @@ int tdsearch_data_free(struct tdSearchData_struct *data)
         }
         free(data->cmds);
     }
+    memory_free8l(&data->lskip);
     memset(data, 0, sizeof(struct tdSearchData_struct));
     return 0;
 }
@@ -362,6 +363,7 @@ int tdsearch_data_readFiles(const int nfiles,
         tdsearch_data_free(data);
         data->obs = (struct sacData_struct *)
                     calloc((size_t) nfiles, sizeof(struct sacData_struct));
+        data->lskip = memory_calloc8l(nfiles);
         data->maxobs = nfiles;
     }
     // Load the data files and pole-zero files
@@ -455,6 +457,64 @@ int tdsearch_data_setEventInformation(const double evla,
         sacio_setFloatHeader(SAC_FLOAT_O,     o,     &data->obs[k].header);
     }
     return ierr;
+}
+//============================================================================//
+/*!
+ * @brief Utility routine for verifying all data is in an appropriate
+ *        modeling distance range.
+ *
+ * @param[in] dmin      Closest source/station distance (degrees).  This is
+ *                      likely 30.
+ * @param[in] dmax      Furthest source/station distance (degrees).  This is
+ *                      likely 95.
+ * @param[in,out] data  On input contains the data and their great circle
+ *                      distances defined in the SAC headers.
+ *                      On output lskip will be updated if the observation
+ *                      is out of the distance bounds.
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
+int tdsearch_data_verifyDistances(const double dmin, const double dmax,
+                                  struct tdSearchData_struct *data)
+{
+    const char *fcnm = "tdsearch_data_verifyDistances\0";
+    double gcarc;
+    int ierr, k;
+    if (dmin > dmax || dmin < 0.0 || dmax > 180.0)
+    {
+        if (dmin > dmax)
+        {
+            log_errorF("%s: Error dmin %f > dmax %f\n", fcnm, dmin, dmax);
+        }
+        if (dmin < 0.0)
+        {
+            log_errorF("%s: Error dmin %f must be non-negative\n", fcnm, dmin);
+        }
+        if (dmax > 180.0)
+        {
+            log_errorF("%s: Error dmax %f must be < 180\n", fcnm, dmax);
+        }
+        return -1;
+    }
+    for (k=0; k<data->nobs; k++)
+    {
+        ierr = sacio_getFloatHeader(SAC_FLOAT_GCARC,
+                                    data->obs[k].header, &gcarc); 
+        if (ierr != 0)
+        {
+            log_errorF("%s: Error gcarc not set on header\n", fcnm);
+        }
+        if (gcarc < dmin || gcarc > dmax)
+        {
+            log_errorF("%s: Observations %d is out of bounds [%f %f]\n",
+                        fcnm, dmin, dmax);
+            data->lskip[k] = true;
+        }
+    }
+    return 0;
 }
 //============================================================================//
 /*!

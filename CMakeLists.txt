@@ -29,7 +29,7 @@ ${TTIMES_INCLUDE_DIR}
 
 #ADD_SUBDIRECTORY(include)
 #ADD_SUBDIRECTORY(src)
-SET(SRCS src/data.c src/event.c src/gridsearch.c src/hudson.c)
+SET(SRCS src/data.c src/event.c src/greens.c src/gridsearch.c src/hudson.c)
 
 ADD_LIBRARY(tdSearch_shared SHARED ${SRCS})
 ADD_EXECUTABLE(tdsearch src/tdsearch.c)

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <iniparser.h>
 #include "tdsearch_data.h"
 #include "ispl/process.h"

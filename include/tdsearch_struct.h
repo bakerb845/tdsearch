@@ -4,6 +4,16 @@
 #include <cps.h>
 #include <compearth.h>
 
+enum tdSearchGreens_enum
+{
+    G11_GRNS = 1,  /*!< Green's function that scales xx moment tensor term */
+    G22_GRNS = 2,  /*!< Green's function that scales yy moment tensor term */
+    G33_GRNS = 3,  /*!< Green's function that scales zz moment tensor term */
+    G12_GRNS = 4,  /*!< Green's function that scales xy moment tensor term */
+    G13_GRNS = 5,  /*!< Green's function that scales xz moment tensor term */
+    G23_GRNS = 6   /*!< Green's function that scales yz moment tensor term */
+};
+
 struct tdSearchEventParms_struct
 {
     double latitude;      /*!< Event latitude (degrees). */
@@ -32,9 +42,13 @@ struct tdSearchGreens_struct
                                in the NED coordinate system and scaled so that
                                they can be applied to a moment tensor specified
                                in Newton-meters [nobs x ndepth x ntstar x 6]. */
-    int ntstar;
-    int ndepth;
-    int nobs;
+    int ntstar;           /*!< Number of t*'s (should correspodn to number of
+                               t*'s in grid search). */
+    int ndepth;           /*!< Number of depths (should correspond to number of
+                               depths in grid search). */
+    int nobs;             /*!< Number of observations (should correspond to
+                                data). */
+    int ngrns;            /*!< Number of Green's functions. */
 };
 
 struct tdsearchHudsonParms_struct

@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
     struct tdSearch_struct tds;
     struct tdSearchEventParms_struct event;
     struct tdSearchHudson_struct ffGrns;
+    struct tdSearchGreens_struct grns;
     char iniFile[PATH_MAX];
     int ierr, provided;
     // Fire up MPI 
@@ -26,6 +27,8 @@ int main(int argc, char *argv[])
     memset(iniFile, 0, PATH_MAX*sizeof(char));
     memset(&event, 0, sizeof(struct tdSearchEventParms_struct));
     memset(&data, 0, sizeof(struct tdSearchEventParms_struct));
+    memset(&ffGrns, 0, sizeof(struct tdSearchHudson_struct));
+    memset(&grns, 0, sizeof(struct tdSearchGreens_struct));
     memset(&tds, 0, sizeof(struct tdSearch_struct));
     iscl_init();
     // Parse the input commands
@@ -129,15 +132,18 @@ tdsearch_data_writeFiles("prepData", NULL, data);
     }
     printf("%s: Green's functions computation time %5.2f (seconds)\n",
            PROGRAM_NAME, time_toc());
-    // Rotate the fundamental faults into the observation frame and give 
+    // Rotate the fundamental faults into the observation frame and give
     // these Green's functions some context w.r.t. to the data
-tdsearch_greens_ffGreensToGreens(data, ffGrns);
+    printf("%s: Rotating Green's functions to observation coordinates...\n",
+           PROGRAM_NAME);
+    tdsearch_greens_ffGreensToGreens(data, ffGrns, &grns);
     // I'm done with the fundamental faults. 
     ierr = tdsearch_hudson_free(&ffGrns);
 
     // Free space
     ierr = tdsearch_gridSearch_free(&tds);
     ierr = tdsearch_data_free(&data);
+    ierr = tdsearch_greens_free(&grns);
     iscl_finalize();
     // Done with MPI
     //MPI_Finalize();

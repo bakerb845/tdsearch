@@ -250,7 +250,7 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                              &grns->grns[indx+i].header);
                     // Align the timing on the arrival
                     epochNew = epoch + (pickTime - o) - pickTimeGrns;
-printf("%f %f %f\n", pickTime, pickTimeGrns, epochNew - epoch);
+//printf("%f %f %f\n", pickTime, pickTimeGrns, epochNew - epoch);
                     sacio_setEpochalStartTime(epochNew,
                                               &grns->grns[indx+i].header);
                 }

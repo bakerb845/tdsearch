@@ -17,9 +17,9 @@ static int grd2ijk(const int igrd,
  * @brief Reads the ini file for Computer Programs in Seismolgoy hudson96
  *        forward modeling variables.
  *
- * @param[in] ini_file    Name of ini file.
+ * @param[in] iniFile    Name of ini file.
  *
- * @param[out] parms      The hudson96 parameters.
+ * @param[out] parms     The hudson96 parameters.
  *
  * @result 0 indicates success.
  *
@@ -808,7 +808,7 @@ NEXT_OBS:;
  * @brief Sets the t*, depth modeling grid on the greens structure.
  *
  * @param[in] ntstar   Number of t*'s (> 0).
- * @param[in] t*       t* attenutation factors for use in hudson96. 
+ * @param[in] tstars   t* attenutation factors for use in hudson96. 
  * @param[in] ndepth   Number of depths (> 0).
  * @param[in] depths   Depths (km) at which to compute synthetics.
  *

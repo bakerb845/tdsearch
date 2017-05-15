@@ -531,7 +531,7 @@ int tdsearch_data_verifyDistances(const double dmin, const double dmax,
  * @param[in] nwork     Max allotted workspace to ptimes.  This must be 
  *                      >= data.nobs;
  *
- * @param[out] ttimes   Epochal theoretical primary arrival times (UTC-seconds)
+ * @param[out] ptimes   Epochal theoretical primary arrival times (UTC-seconds)
  *                      for each observation.
  *
  * @result 0 indicates success.
@@ -675,6 +675,9 @@ ERROR:;
 /*!
  * @brief Some ad-hoc rules for fixing the data processing commands. 
  *
+ * @param[in] cut0        Time relative to pick to begin cut (seconds).
+ * @param[in] cut1        Time relative to pick to end cut (seconds).
+ * @param[in] targetDt    Target sampling period (seconds).
  * @param[in,out] data    On input contains the data and processing commands.
  *                        On output the generic processing commands have
  *                        been modified so that they are parsable by ispl.

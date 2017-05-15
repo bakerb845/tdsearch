@@ -134,11 +134,20 @@ tdsearch_data_writeFiles("prepData", NULL, data);
            PROGRAM_NAME, time_toc());
     // Rotate the fundamental faults into the observation frame and give
     // these Green's functions some context w.r.t. to the data
-    printf("%s: Rotating Green's functions to observation coordinates...\n",
+    printf("%s: Putting Green's functions in data context...\n",
            PROGRAM_NAME);
-    tdsearch_greens_ffGreensToGreens(data, ffGrns, &grns);
+    ierr = tdsearch_greens_ffGreensToGreens(data, ffGrns, &grns);
+    if (ierr != 0)
+    {
+        printf("%s: Error manipulating Green's functions\n", PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
     // I'm done with the fundamental faults. 
     ierr = tdsearch_hudson_free(&ffGrns);
+/*
+tdsearch_greens_writeSelectGreensFunctions("prepData",
+                                           0, 1, 3, grns);
+*/
 
     // Free space
     ierr = tdsearch_gridSearch_free(&tds);

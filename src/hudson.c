@@ -537,6 +537,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
         ierr = cps_getmod(grns->srcModelName, &srcmod);
         if (ierr != 0){return EXIT_FAILURE;}
     }
+    printf("%s: Computing Green's functions...\n", fcnm);
     // Otherwise source to teleseismic model
     if (!grns->luseSrcModel && !grns->luseCrust1)
     {

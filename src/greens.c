@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iniparser.h>
 #include "parmt_utils.h"
+#include "tdsearch_greens.h"
 #ifdef TDSEARCH_USE_INTEL
 #include <mkl_blas.h>
 #else
@@ -9,13 +11,113 @@
 #endif
 #include "tdsearch_struct.h"
 #include "tdsearch_hudson.h"
+#include "ispl/process.h"
 #include "iscl/log/log.h"
 #include "iscl/os/os.h"
 
 static int getPrimaryArrival(const struct sacHeader_struct hdr,
                              double *time, char phaseName[8]);
 
+int tdsearch_greens_setPreprocessingCommandsFromIniFile(
+    const char *iniFile,
+    const int nobs,  
+    struct tdSearchGreens_struct *grns)
+{
+    const char *fcnm = "tdsearch_greens_setPreprocessingCommandsFromIniFile\0";
+    dictionary *ini;
+    char **cmds;
+    const char *s;
+    char varname[128];
+    size_t lenos;
+    int ierr, k, ncmds, ncmdsWork;
 
+    grns->nobs = nobs;
+    if (grns->nobs < 1){return 0;}
+    if (!os_path_isfile(iniFile))
+    {
+        log_errorF("%s: Error ini file %s doesn't exist\n", fcnm, iniFile);
+        return -1;
+    }
+    ini = iniparser_load(iniFile);
+    ncmds = iniparser_getint(ini, "tdSearch:greens:nCommands\0", 0);
+    grns->cmds = (struct tdSearchDataProcessingCommands_struct *)
+                 calloc((size_t) ncmds,
+                        sizeof(struct tdSearchDataProcessingCommands_struct));
+    //if (!luseProcessingList)
+    {
+        if (ncmds > 0)
+        {
+            ncmdsWork = ncmds;
+            ncmds = 0;
+            cmds = (char **) calloc((size_t) ncmdsWork, sizeof(char *));
+            for (k=0; k<ncmdsWork; k++)
+            {
+                memset(varname, 0, 128*sizeof(char));
+                sprintf(varname, "tdSearch:greens:command_%d", k+1);
+                s = iniparser_getstring(ini, varname, NULL);
+                if (s == NULL){continue;}
+                lenos = strlen(s);
+                cmds[ncmds] = (char *) calloc(lenos+1, sizeof(char));
+                strcpy(cmds[ncmds], s);
+                //printf("%s\n", cmds[ncmds]);
+                ncmds = ncmds + 1;
+            }
+            // Attach these to the data processing structure
+            for (k=0; k<grns->nobs; k++)
+            {
+                ierr = tdsearch_greens_attachCommandsToGreens(
+                           k, ncmds, (const char **) cmds, grns);
+            }
+            // Free space
+            for (k=0; k<ncmdsWork; k++)
+            {
+                if (cmds[k] != NULL){free(cmds[k]);}
+            }
+            free(cmds);
+        }
+    }
+    iniparser_freedict(ini);
+    return 0;
+}
+//============================================================================//
+int tdsearch_greens_attachCommandsToGreens(const int iobs, const int ncmds,
+                                           const char **cmds,
+                                           struct tdSearchGreens_struct *grns)
+{
+    const char *fcnm = "tdsearch_greens_attachCommandsToGreens\0";
+    int i;
+    size_t lenos;
+    // Make sure iobs is in bounds 
+    if (iobs < 0 || iobs >= grns->nobs)
+    {    
+        log_errorF("%s: Error iobs is out of bounds [0,%d]\n",
+                   fcnm, iobs, grns->nobs);
+        return -1;      
+    }        
+    // Try to handle space allocation if not already done
+    if (grns->cmds == NULL && grns->nobs > 0)
+    {    
+        grns->cmds = (struct tdSearchDataProcessingCommands_struct *)
+                     calloc((size_t) grns->nobs,
+                        sizeof(struct tdSearchDataProcessingCommands_struct));
+    }    
+    if (grns->cmds == NULL)
+    {    
+        log_errorF("%s: Error grns->cmds is NULL\n", fcnm);
+        return -1;
+    }
+    if (ncmds == 0){return 0;}
+    grns->cmds[iobs].ncmds = ncmds;
+    grns->cmds[iobs].cmds = (char **) calloc((size_t) ncmds, sizeof(char *));
+    for (i=0; i<ncmds; i++)
+    {    
+        lenos = strlen(cmds[i]);
+        grns->cmds[iobs].cmds[i] = (char *) calloc(lenos+1, sizeof(char));
+        strcpy(grns->cmds[iobs].cmds[i], cmds[i]);
+    }
+    return 0;
+}
+//============================================================================//
 /*!
  * @brief Convenience function which returns the index of the Green's
  *        function on the Green's function structure.
@@ -74,7 +176,7 @@ int tdsearch_greens_getGreensFunctionIndex(
  */
 int tdsearch_greens_free(struct tdSearchGreens_struct *grns)
 {
-    int k;
+    int i, k;
     if (grns->grns != NULL && grns->ngrns > 0)
     {
         for (k=0; k<grns->ngrns; k++)
@@ -82,6 +184,21 @@ int tdsearch_greens_free(struct tdSearchGreens_struct *grns)
             sacio_free(&grns->grns[k]);
         }
         free(grns->grns);
+    }
+    if (grns->cmds != NULL)
+    {
+        for (k=0; k<grns->nobs; k++)
+        {
+            if (grns->cmds[k].cmds != NULL)
+            {
+                for (i=0; i<grns->cmds[k].ncmds; i++)
+                {
+                    free(grns->cmds[k].cmds[i]);
+                }
+                free(grns->cmds[k].cmds);
+            }
+        }
+        free(grns->cmds);
     }
     memset(grns, 0, sizeof(struct tdSearchGreens_struct));
     return 0;
@@ -124,7 +241,7 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                  // Dyne-cm but I work in N-m
     // Given a M0 in Newton-meters get a seismogram in meters
     const double xscal = xmom*xcps*cm2m*dcm2nm;
-    memset(grns, 0, sizeof(struct tdSearchGreens_struct));
+    //memset(grns, 0, sizeof(struct tdSearchGreens_struct));
     grns->ntstar = ffGrns.ntstar;
     grns->ndepth = ffGrns.ndepth;
     grns->nobs = data.nobs;
@@ -213,6 +330,11 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                 sacio_getFloatHeader(SAC_FLOAT_O, ffGrns.grns[kndx].header, &o);
                 getPrimaryArrival(ffGrns.grns[kndx].header,
                                   &pickTimeGrns, phaseNameGrns);
+                if (strcasecmp(phaseNameGrns, phaseName) != 0)
+                {
+                    log_warnF("%s: Phase name mismatch %s %s\n",
+                              fcnm, phaseName, phaseNameGrns);
+                }
                 npts = ffGrns.grns[kndx].npts;
                 indx = tdsearch_greens_getGreensFunctionIndex(G11_GRNS,
                                                               iobs, it, id,
@@ -220,6 +342,11 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                 for (i=0; i<6; i++)
                 {
                     sacio_copy(ffGrns.grns[kndx], &grns->grns[indx+i]);
+                    if (data.obs[iobs].pz.lhavePZ)
+                    {
+                        sacio_copyPolesAndZeros(data.obs[iobs].pz,
+                                                &grns->grns[indx+i].pz);
+                    }
                     sacio_setFloatHeader(SAC_FLOAT_AZ, az,
                                          &grns->grns[indx+i].header);
                     sacio_setFloatHeader(SAC_FLOAT_BAZ, baz,
@@ -248,9 +375,8 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                              &grns->grns[indx+i].header);
                     sacio_setCharacterHeader(SAC_CHAR_KEVNM, "SYNTHETIC\0",
                                              &grns->grns[indx+i].header);
-                    // Align the timing on the arrival
+                    // Set the start time by aligning on the arrival
                     epochNew = epoch + (pickTime - o) - pickTimeGrns;
-//printf("%f %f %f\n", pickTime, pickTimeGrns, epochNew - epoch);
                     sacio_setEpochalStartTime(epochNew,
                                               &grns->grns[indx+i].header);
                 }
@@ -267,7 +393,7 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                                   ffGrns.grns[kndx+7].data,
                                                   ffGrns.grns[kndx+8].data,
                                                   ffGrns.grns[kndx+9].data,
-                                                  grns->grns[indx+0].data, 
+                                                  grns->grns[indx+0].data,
                                                   grns->grns[indx+1].data,
                                                   grns->grns[indx+2].data,
                                                   grns->grns[indx+3].data,
@@ -283,7 +409,81 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                     cblas_dscal(npts, xscal, grns->grns[indx+i].data, 1); 
                 }
             }
-        } 
+        }
+    }
+    return 0;
+}
+//============================================================================//
+int tdsearch_greens_modifyProcessingCommands(
+    const double cut0, const double cut1, const double targetDt,
+    struct tdSearchGreens_struct *grns)
+{
+    const char *fcnm = "tdsearch_greens_modifyProcessingCommands\0";
+    char **newCmds, **cmds, **cmdSplit, cwork[MAX_CMD_LEN],
+         c64[64], cmd1[64], cmd2[64];
+    double dt0;
+    size_t lenos;
+    int i, ierr, iobs, ncmds;
+    ierr = 0;
+    for (iobs=0; iobs<grns->nobs; iobs++)
+    {
+        newCmds = NULL;
+        ncmds =  grns->cmds[iobs].ncmds;
+        if (ncmds < 1){continue;} // Nothing to do
+        cmds = grns->cmds[iobs].cmds;
+        // Modify the problematic commands
+        ierr = sacio_getFloatHeader(SAC_FLOAT_DELTA,
+                                    grns->grns[iobs].header, &dt0);
+        newCmds = (char **) calloc((size_t) ncmds, sizeof(char *));
+        for (i=0; i<ncmds; i++)
+        {
+            newCmds[i] = (char *) calloc(MAX_CMD_LEN, sizeof(char));
+            lenos = strlen(cmds[i]);
+            memset(cwork, 0, MAX_CMD_LEN*sizeof(char));
+            memset(cmd1, 0, 64*sizeof(char));
+            memset(cmd2, 0, 64*sizeof(char));
+            strncpy(cmd1, cmds[i], MIN(3, lenos));
+            strncpy(cmd2, cmds[i], MIN(3, lenos));
+            if (false) //if (strcasecmp(cmds[i], "transfer\0") == 0)
+            {
+                log_errorF("%s: transfer command not yet done\n", fcnm);
+                ierr = 1;
+                goto ERROR; 
+            }
+            else
+            {
+                strcpy(cwork, cmds[i]);
+            }
+            // Update the command
+            strcpy(newCmds[i], cwork);
+        }
+
+        // Reset the command structure and free newCmds
+        for (i=0; i<ncmds; i++)
+        {
+            if (grns->cmds[iobs].cmds[i] != NULL){free(grns->cmds[iobs].cmds[i]);}
+            grns->cmds[iobs].cmds[i] = (char *) calloc(MAX_CMD_LEN, sizeof(char));
+            strcpy(grns->cmds[iobs].cmds[i], newCmds[i]);
+            free(newCmds[i]);
+        }
+        free(newCmds); 
+    }
+ERROR:;
+    return ierr;
+}
+//============================================================================//
+int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
+{
+    const char *fcnm = "tdsearch_greens_process\0";
+    double *Gdat;
+    int *dataPtr, iobs, idep, it;
+    // Loop on the observations
+    for (iobs=0; iobs<grns->nobs; iobs++)
+    {
+        // Set the commands for this observation
+
+        // Process this chunk of data
+
     }
     return 0;
 }

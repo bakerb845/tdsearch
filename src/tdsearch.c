@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     struct tdSearchHudson_struct ffGrns;
     struct tdSearchGreens_struct grns;
     char iniFile[PATH_MAX];
-    int ierr, provided;
+    int ierr, iobs, provided;
     // Fire up MPI 
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
     // Initialize
@@ -61,6 +61,16 @@ int main(int argc, char *argv[])
     if (ierr != 0)
     {
         printf("%s: Failed to read hudson/hpulse parameters\n", PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
+    // Get the Green's functions pre-processing commands
+    ierr = tdsearch_greens_setPreprocessingCommandsFromIniFile(iniFile,
+                                                               data.nobs,  
+                                                               &grns);
+    if (ierr != 0)
+    {
+        printf("%s: Failed to get greens preprocessing commands\n",
+               PROGRAM_NAME);
         return EXIT_FAILURE;
     }
     // Set the event information on the data
@@ -144,11 +154,39 @@ tdsearch_data_writeFiles("prepData", NULL, data);
     }
     // I'm done with the fundamental faults. 
     ierr = tdsearch_hudson_free(&ffGrns);
+    if (ierr != 0)
+    {
+        printf("%s: Failed to free ffGrns\n", PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
+    // Fix the Green's functions pre-processing commands
+    printf("%s: Modifying Green's functions processing commands...\n",
+           PROGRAM_NAME);
+    tdsearch_greens_modifyProcessingCommands(-5, 15, 0.25, &grns);
 /*
 tdsearch_greens_writeSelectGreensFunctions("prepData",
                                            0, 1, 3, grns);
 */
+    // At this point the data and Green's functions defined on the (t*,depth)
+    // grid have been pre-processed.  Now the estimation begins.
+    for (iobs=0; iobs<data.nobs; iobs++)
+    {
+        // Set the data for this observation
 
+        // Set the corresonding Green's functions for this observation
+
+        //--------------------------------------------------------------------//
+        // JEFF - here you could put an interactive loop.  In this instance   //
+        // the user could continually set the moment tensor and perpetually   //
+        // re-run.                                                            //
+        //--------------------------------------------------------------------//
+        // Set the moment tensor
+
+        // Run the estimation
+
+        // Write the optimal synthetic, observation, and heat map  
+
+    }
     // Free space
     ierr = tdsearch_gridSearch_free(&tds);
     ierr = tdsearch_data_free(&data);

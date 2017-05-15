@@ -42,6 +42,9 @@ struct tdSearchGreens_struct
                                in the NED coordinate system and scaled so that
                                they can be applied to a moment tensor specified
                                in Newton-meters [nobs x ndepth x ntstar x 6]. */
+    struct tdSearchDataProcessingCommands_struct
+           *cmds;         /*!< Data processing commands for each observation
+                               [nobs]. */
     int ntstar;           /*!< Number of t*'s (should correspodn to number of
                                t*'s in grid search). */
     int ndepth;           /*!< Number of depths (should correspond to number of

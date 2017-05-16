@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <iniparser.h>
 #include "tdsearch_data.h"
+#include "tdsearch_commands.h"
 #include "ispl/process.h"
 #include "sacio.h"
 #include "ttimes.h"
@@ -313,7 +314,10 @@ int tdsearch_data_free(struct tdSearchData_struct *data)
             {
                 for (i=0; i<data->cmds[k].ncmds; i++)
                 {
-                    free(data->cmds[k].cmds[i]);
+                    if (data->cmds[k].cmds[i] != NULL)
+                    {
+                        free(data->cmds[k].cmds[i]);
+                    }
                 }
                 free(data->cmds[k].cmds);
             }
@@ -692,7 +696,9 @@ int tdsearch_data_modifyProcessingCommands(
     struct tdSearchData_struct *data)
 {
     const char *fcnm = "tdsearch_data_modifyProcessingCommands\0";
-    char **newCmds, **cmds, **cmdSplit, cwork[MAX_CMD_LEN],
+    struct tdSearchModifyCommands_struct options;
+    const char **cmds;
+    char **newCmds, **cmdSplit, cwork[MAX_CMD_LEN],
          c64[64], cmd1[64], cmd2[64];
     double dt0, epoch, ptime, t0, t1;
     bool oneCorner;
@@ -702,8 +708,22 @@ int tdsearch_data_modifyProcessingCommands(
     const bool lfixPhase = true; // don't let anti-alias filter mess up picks
     //------------------------------------------------------------------------//
     ierr = 0;
+    memset(&options, 0, sizeof(struct tdSearchModifyCommands_struct));
     for (k=0; k<data->nobs; k++)
     {
+        newCmds = NULL;
+        ncmds = data->cmds[k].ncmds;
+        if (ncmds < 1){continue;}
+        options.cut0 = cut0;
+        options.cut1 = cut1;
+        options.targetDt = targetDt;
+        options.ldeconvolution = true;
+        options.iodva = 1; // TODO change me
+        cmds = (const char **) data->cmds[k].cmds;
+        newCmds = tdsearch_commands_modifyCommands(ncmds, (const char **) cmds,
+                                                   options,
+                                                   data->obs[k], &ierr);
+        /*
         newCmds = NULL;
         ncmds =  data->cmds[k].ncmds; 
         if (ncmds < 1){continue;} // Nothing to do
@@ -880,6 +900,7 @@ int tdsearch_data_modifyProcessingCommands(
             // Update the command
             strcpy(newCmds[i], cwork); 
         } // Loop on commands
+        */
         // Reset the command structure and free newCmds
         for (i=0; i<ncmds; i++)
         { 

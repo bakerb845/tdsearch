@@ -4,6 +4,7 @@
 #include <iniparser.h>
 #include "parmt_utils.h"
 #include "tdsearch_greens.h"
+#include "tdsearch_commands.h"
 #ifdef TDSEARCH_USE_INTEL
 #include <mkl_blas.h>
 #else
@@ -193,12 +194,33 @@ int tdsearch_greens_free(struct tdSearchGreens_struct *grns)
             {
                 for (i=0; i<grns->cmds[k].ncmds; i++)
                 {
-                    free(grns->cmds[k].cmds[i]);
+                    if (grns->cmds[k].cmds[i] != NULL)
+                    {
+                        free(grns->cmds[k].cmds[i]);
+                    }
                 }
                 free(grns->cmds[k].cmds);
             }
         }
         free(grns->cmds);
+    }
+    if (grns->cmdsGrns != NULL)
+    {
+        for (k=0; k<grns->ngrns; k++)
+        {
+            if (grns->cmdsGrns[k].cmds != NULL)
+            {
+                for (i=0; i<grns->cmdsGrns[k].ncmds; i++)
+                {
+                    if (grns->cmdsGrns[k].cmds != NULL)
+                    {
+                        free(grns->cmdsGrns[k].cmds[i]);
+                    }
+                }
+                free(grns->cmdsGrns[k].cmds);
+             }
+        } 
+        free(grns->cmdsGrns);
     }
     memset(grns, 0, sizeof(struct tdSearchGreens_struct));
     return 0;
@@ -419,54 +441,61 @@ int tdsearch_greens_modifyProcessingCommands(
     struct tdSearchGreens_struct *grns)
 {
     const char *fcnm = "tdsearch_greens_modifyProcessingCommands\0";
-    char **newCmds, **cmds, **cmdSplit, cwork[MAX_CMD_LEN],
+    struct tdSearchModifyCommands_struct options;
+    const char **cmds;
+    char **newCmds, **cmdSplit, cwork[MAX_CMD_LEN],
          c64[64], cmd1[64], cmd2[64];
-    double dt0;
+    double dt0, epoch, ptime, t0, t1;
     size_t lenos;
-    int i, ierr, iobs, ncmds;
+    int i, ierr, iobs, k, kndx1, kndx2, ncmds;
     ierr = 0;
+    grns->cmdsGrns = (struct tdSearchDataProcessingCommands_struct *)
+                     calloc((size_t) grns->ngrns,
+                        sizeof(struct tdSearchDataProcessingCommands_struct));
     for (iobs=0; iobs<grns->nobs; iobs++)
     {
         newCmds = NULL;
         ncmds =  grns->cmds[iobs].ncmds;
         if (ncmds < 1){continue;} // Nothing to do
-        cmds = grns->cmds[iobs].cmds;
-        // Modify the problematic commands
-        ierr = sacio_getFloatHeader(SAC_FLOAT_DELTA,
-                                    grns->grns[iobs].header, &dt0);
-        newCmds = (char **) calloc((size_t) ncmds, sizeof(char *));
-        for (i=0; i<ncmds; i++)
+        cmds = (const char **) grns->cmds[iobs].cmds;
+        options.cut0 = cut0;
+        options.cut1 = cut1;
+        options.targetDt = targetDt;
+        options.ldeconvolution = true;
+        options.iodva = 1; // TODO change me
+        kndx1 = iobs*(6*grns->ntstar*grns->ndepth);
+        kndx2 = (iobs+1)*(6*grns->ntstar*grns->ndepth);
+        newCmds = tdsearch_commands_modifyCommands(ncmds, (const char **) cmds,
+                                                   options,
+                                                   grns->grns[kndx1], &ierr);
+        if (ierr != 0)
         {
-            newCmds[i] = (char *) calloc(MAX_CMD_LEN, sizeof(char));
-            lenos = strlen(cmds[i]);
-            memset(cwork, 0, MAX_CMD_LEN*sizeof(char));
-            memset(cmd1, 0, 64*sizeof(char));
-            memset(cmd2, 0, 64*sizeof(char));
-            strncpy(cmd1, cmds[i], MIN(3, lenos));
-            strncpy(cmd2, cmds[i], MIN(3, lenos));
-            if (false) //if (strcasecmp(cmds[i], "transfer\0") == 0)
-            {
-                log_errorF("%s: transfer command not yet done\n", fcnm);
-                ierr = 1;
-                goto ERROR; 
-            }
-            else
-            {
-                strcpy(cwork, cmds[i]);
-            }
-            // Update the command
-            strcpy(newCmds[i], cwork);
+            log_errorF("%s: Failed to set processing commands\n", fcnm);
+            goto ERROR;
         }
-
-        // Reset the command structure and free newCmds
-        for (i=0; i<ncmds; i++)
+        // Expand the processing commands 
+        for (k=kndx1; k<kndx2; k++)
         {
-            if (grns->cmds[iobs].cmds[i] != NULL){free(grns->cmds[iobs].cmds[i]);}
-            grns->cmds[iobs].cmds[i] = (char *) calloc(MAX_CMD_LEN, sizeof(char));
-            strcpy(grns->cmds[iobs].cmds[i], newCmds[i]);
-            free(newCmds[i]);
+            grns->cmdsGrns[k].ncmds = ncmds;
+            grns->cmdsGrns[k].cmds = (char **)
+                                     calloc((size_t) ncmds, sizeof(char *));
+            for (i=0; i<ncmds; i++)
+            {
+                lenos = strlen(newCmds[i]);
+                grns->cmdsGrns[k].cmds[i] = (char *)
+                                            calloc(lenos+1, sizeof(char));
+                strcpy(grns->cmdsGrns[k].cmds[i], newCmds[i]);
+            }
+        } 
+        // Release the memory
+        if (newCmds != NULL)
+        {
+            for (i=0; i<ncmds; i++)
+            {
+                if (newCmds[i] != NULL){free(newCmds[i]);}
+            }
+            free(newCmds);
         }
-        free(newCmds); 
     }
 ERROR:;
     return ierr;

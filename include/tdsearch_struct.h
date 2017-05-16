@@ -31,6 +31,15 @@ struct tdSearchEventParms_struct
     char pad[4];
 };
 
+struct tdSearchModifyCommands_struct
+{
+    double targetDt;
+    double cut0;
+    double cut1;
+    int iodva;
+    bool ldeconvolution;
+};
+
 struct tdSearchGreens_struct
 {
     struct sacData_struct 
@@ -45,6 +54,9 @@ struct tdSearchGreens_struct
     struct tdSearchDataProcessingCommands_struct
            *cmds;         /*!< Data processing commands for each observation
                                [nobs]. */
+    struct tdSearchDataProcessingCommands_struct
+           *cmdsGrns;     /*!< Green's functions commands that are to be
+                               applied to each Green's functions. */
     int ntstar;           /*!< Number of t*'s (should correspodn to number of
                                t*'s in grid search). */
     int ndepth;           /*!< Number of depths (should correspond to number of

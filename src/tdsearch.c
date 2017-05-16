@@ -162,7 +162,13 @@ tdsearch_data_writeFiles("prepData", NULL, data);
     // Fix the Green's functions pre-processing commands
     printf("%s: Modifying Green's functions processing commands...\n",
            PROGRAM_NAME);
-    tdsearch_greens_modifyProcessingCommands(-5, 15, 0.25, &grns);
+    ierr = tdsearch_greens_modifyProcessingCommands(-5, 15, 0.25, &grns);
+    if (ierr != 0)
+    {
+        printf("%s: Failed to modify Green's pre-processing commands\n",
+               PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
 /*
 tdsearch_greens_writeSelectGreensFunctions("prepData",
                                            0, 1, 3, grns);

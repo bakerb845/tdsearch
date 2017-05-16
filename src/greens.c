@@ -13,7 +13,9 @@
 #include "tdsearch_struct.h"
 #include "tdsearch_hudson.h"
 #include "ispl/process.h"
+#include "iscl/array/array.h"
 #include "iscl/log/log.h"
+#include "iscl/memory/memory.h"
 #include "iscl/os/os.h"
 
 static int getPrimaryArrival(const struct sacHeader_struct hdr,
@@ -443,8 +445,7 @@ int tdsearch_greens_modifyProcessingCommands(
     const char *fcnm = "tdsearch_greens_modifyProcessingCommands\0";
     struct tdSearchModifyCommands_struct options;
     const char **cmds;
-    char **newCmds, **cmdSplit, cwork[MAX_CMD_LEN],
-         c64[64], cmd1[64], cmd2[64];
+    char **newCmds, **cmdSplit, cwork[MAX_CMD_LEN];
     double dt0, epoch, ptime, t0, t1;
     size_t lenos;
     int i, ierr, iobs, k, kndx1, kndx2, ncmds;
@@ -461,7 +462,7 @@ int tdsearch_greens_modifyProcessingCommands(
         options.cut0 = cut0;
         options.cut1 = cut1;
         options.targetDt = targetDt;
-        options.ldeconvolution = true;
+        options.ldeconvolution = false;
         options.iodva = 1; // TODO change me
         kndx1 = iobs*(6*grns->ntstar*grns->ndepth);
         kndx2 = (iobs+1)*(6*grns->ntstar*grns->ndepth);
@@ -504,16 +505,101 @@ ERROR:;
 int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
 {
     const char *fcnm = "tdsearch_greens_process\0";
-    double *Gdat;
-    int *dataPtr, iobs, idep, it;
+    double *data;
+    struct serialCommands_struct commands;
+    struct parallelCommands_struct parallelCommands;
+    int dataPtr[7], i, ierr, iobs, idep, it, jndx, kndx, nwork, ny, ns;
+    const int nsignals = 6;
+/*
+    commands = (struct serialCommands_struct *)
+               calloc((size_t) (grns->ngrns/6),
+                      sizeof(struct serialCommands_struct));
+*/
     // Loop on the observations
     for (iobs=0; iobs<grns->nobs; iobs++)
     {
-        // Set the commands for this observation
+        for (idep=0; idep<grns->ndepth; idep++)
+        {
+            for (it=0; it<grns->ntstar; it++)
+            {
+                memset(&parallelCommands, 0, sizeof(struct parallelCommands_struct)); 
+                memset(&commands, 0, sizeof(struct serialCommands_struct));
+                kndx = tdsearch_greens_getGreensFunctionIndex(G11_GRNS,
+                                                              iobs, it, idep,
+                                                              *grns);
+                jndx = kndx/6;
+                ierr = process_stringsToSerialCommandsOptions(
+                                      grns->cmdsGrns[kndx].ncmds,
+                                      (const char **) grns->cmdsGrns[kndx].cmds,
+                                      &commands); //[jndx]);
+                if (ierr != 0)
+                {
+                    log_errorF("%s: Error setting serial command string\n", fcnm);
+                    goto ERROR;
+                }
+                dataPtr[0] = 0;
+                for (i=0; i<nsignals; i++)
+                {
+                    dataPtr[i+1] = dataPtr[i] + grns->grns[kndx+i].npts;
+                }
+                process_setCommandOnAllParallelCommands(nsignals, commands,
+                                                        &parallelCommands);
+                data = memory_calloc64f(dataPtr[nsignals]);
+                for (i=0; i<nsignals; i++)
+                {
+                    ierr = array_copy64f_work(grns->grns[kndx+i].npts,
+                                              grns->grns[kndx+i].data,
+                                              &data[dataPtr[i]]);
+                    if (ierr != 0)
+                    {
+                         log_errorF("%s: Failed to copy data\n", fcnm);
+                         goto ERROR;
+                    }
+                }
+                ierr = process_setParallelCommandsData64f(nsignals, dataPtr,
+                                                          data,
+                                                          &parallelCommands);
+                if (ierr != 0)
+                {
+                    log_errorF("%s: Failed to set data\n", fcnm);
+                    goto ERROR;
+                }
+                ierr = process_applyParallelCommands(&parallelCommands);
+                if (ierr != 0)
+                {
+                    log_errorF("%s: Failed to process data\n", fcnm);
+                    goto ERROR;
+                }
+                // Get the data
+                nwork = dataPtr[nsignals];
+                ierr = process_getParallelCommandsData64f(parallelCommands,
+                                                          -1, nsignals,
+                                                          &ny, &ns,
+                                                          dataPtr, data);
+                if (ny > nwork)
+                {
+                    memory_free64f(&data);
+                    data = memory_calloc64f(ny);
+                }
+                nwork = ny;
+                ierr = process_getParallelCommandsData64f(parallelCommands,
+                                                          nwork, nsignals,
+                                                          &ny, &ns,
+                                                          dataPtr, data);
+                for (i=0; i<nsignals; i++)
+                {
+                    ierr = array_copy64f_work(grns->grns[kndx+i].npts,
+                                              &data[dataPtr[i]],
+                                              grns->grns[kndx+i].data);
 
-        // Process this chunk of data
-
+                }
+                process_freeSerialCommands(&commands);
+                process_freeParallelCommands(&parallelCommands);
+                memory_free64f(&data);
+            }
+        }
     }
+ERROR:;
     return 0;
 }
 //============================================================================//

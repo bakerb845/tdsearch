@@ -18,6 +18,7 @@ int tdsearch_greens_modifyProcessingCommands(
 int tdsearch_greens_attachCommandsToGreens(const int iobs, const int ncmds,
                                            const char **cmds,
                                            struct tdSearchGreens_struct *grns);
+int tdsearch_greens_process(struct tdSearchGreens_struct *grns);
 int tdsearch_greens_writeSelectGreensFunctions(
     const char *dirnm,
     const int iobs, const int itstar, const int idepth,

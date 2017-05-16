@@ -169,10 +169,9 @@ tdsearch_data_writeFiles("prepData", NULL, data);
                PROGRAM_NAME);
         return EXIT_FAILURE;
     }
-/*
+    ierr = tdsearch_greens_process(&grns);
 tdsearch_greens_writeSelectGreensFunctions("prepData",
                                            0, 1, 3, grns);
-*/
     // At this point the data and Green's functions defined on the (t*,depth)
     // grid have been pre-processed.  Now the estimation begins.
     for (iobs=0; iobs<data.nobs; iobs++)

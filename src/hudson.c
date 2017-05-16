@@ -371,7 +371,7 @@ int tdsearch_hudson_setDistancesToModel(const double distMin,
 int tdsearch_hudson_free(struct tdSearchHudson_struct *grns)
 {
     int i, nloop;
-    nloop = grns->nobs*grns->ntstar*grns->ndepth;
+    nloop = 10*grns->nobs*grns->ntstar*grns->ndepth;
     memory_free64f(&grns->tstars);
     memory_free64f(&grns->depths);
     if (nloop > 0 && grns->grns != NULL)
@@ -629,7 +629,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
         hudson96ParmsWork.dt = dt;
         hudson96ParmsWork.gcarc = gcarc;
         hudson96ParmsWork.utstar = grns->tstars[it];
-        hudson96ParmsWork.npts = MIN(2048, 4*fft_nextpow2(MAX(1, npts)));
+        hudson96ParmsWork.npts = MIN(2048, 2*fft_nextpow2(MAX(1, npts)));
         hudson96ParmsWork.offset = fmin(pickTime, offset0);
         if (pickTime < hudson96ParmsWork.offset)
         {

@@ -1130,7 +1130,7 @@ int tdsearch_data_process(struct tdSearchData_struct *data)
 ERROR:;
     for (k=0; k<data->nobs; k++)
     {
-        process_freeSerialCommandsData(&commands[k]);
+        process_freeSerialCommands(&commands[k]);
     }
     memory_free64f(&ycopy);
     memory_free32i(&nyAll);

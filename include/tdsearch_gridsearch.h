@@ -26,6 +26,8 @@ int tdSearch_gridSearch_makeSACSynthetic(
     const struct tdSearchGreens_struct grns,
     const struct tdSearch_struct tds,
     struct sacData_struct *synth);
+int tdsearch_gridSearch_writeHeatMap(const char *dirnm, const char *fname,
+                                     const struct tdSearch_struct tds);
 int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds);
 int tdsearch_gridSearch_defineTstarGrid(const int ntstars, const double tstar0,
                                         const double tstar1,

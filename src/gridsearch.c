@@ -659,6 +659,74 @@ getchar();
     }
     return 0;
 }
+int tdsearch_gridSearch_writeHeatMap(const char *dirnm, const char *froot,
+                                     const struct tdSearch_struct tds)
+{
+    const char *fcnm = "tdsearch_gridSearch_writeHeatMap\0";
+    FILE *ofl;
+    char fname[PATH_MAX], fgnu[PATH_MAX], cmd[256];
+    int id, idt, it;
+    memset(fname, 0, PATH_MAX*sizeof(char));
+    if (!tds.xcorr || !tds.lags)
+    {
+        log_errorF("%s: Error gridsearch likely not performed\n", fcnm);
+        return -1;
+    }
+    if (!tds.tstar || !tds.depths)
+    {
+        log_errorF("%s: Error tds likely not initialized\n", fcnm);
+        return -1;
+    }
+    if (dirnm != NULL)
+    {
+        sprintf(fname, "%s/%s.surf_txt", dirnm, froot);
+    }
+    else
+    {
+        sprintf(fname, "./%s.surf_txt", froot);
+    }
+    ofl = fopen(fname, "w");
+    for (id=0; id<tds.ndepth; id++)
+    {
+        for (it=0; it<tds.ntstar; it++)
+        {
+            idt = tdsearch_gridSearch_gridToIndex(it, id, tds);
+            fprintf(ofl, "%f %f %e %d\n",
+                    tds.tstar[it], tds.depths[id],
+                    tds.xcorr[idt], tds.lags[idt]);
+        }
+       fprintf(ofl, "\n");
+    } 
+    fclose(ofl);
+    // and the gnuplot file
+    memset(fgnu, 0, PATH_MAX*sizeof(char));
+    if (dirnm != NULL)
+    {
+        sprintf(fgnu, "%s/%s.gnu", dirnm, froot);
+    }
+    else
+    {
+        sprintf(fgnu, "./%s.gnu", froot);
+    }
+    ofl = fopen(fgnu, "w");
+    fprintf(ofl, "#!/usr/bin/gnuplot -persist\n");
+    fprintf(ofl, "set pm3d map\n");
+    fprintf(ofl, "set xlabel 't*'\n");
+    fprintf(ofl, "set ylabel 'Depth (km)'\n");
+    fprintf(ofl, "set title 'Cross-Correlation'\n");
+    fprintf(ofl, "set grid\n");
+    fprintf(ofl, "set xrange [%f:%f]\n", tds.tstar[0],
+                                         tds.tstar[MAX(0, tds.ntstar-1)]);
+    fprintf(ofl, "set yrange [%f:%f]\n", tds.depths[MAX(0, tds.ndepth-1)],
+                                         tds.depths[0]);
+    fprintf(ofl, "splot '%s.surf_txt' u 1:2:3\n", froot);
+    fclose(ofl);
+    // change permissions
+    memset(cmd, 0, 256*sizeof(char));
+    sprintf(cmd, "chmod 0755 %s", fgnu);
+    system(cmd);
+    return 0;
+}
 //============================================================================//
 int tdSearch_gridSearch_makeSACSynthetic(
     const int iobs, const int it, const int id,

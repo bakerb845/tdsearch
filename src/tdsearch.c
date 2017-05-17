@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     struct tdSearchHudson_struct ffGrns;
     struct tdSearchGreens_struct grns;
     struct sacData_struct synth;
-    char iniFile[PATH_MAX], synthName[PATH_MAX];
+    char iniFile[PATH_MAX], synthName[PATH_MAX], heatMap[PATH_MAX];
     int ierr, iobs, provided;
     // Fire up MPI 
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
@@ -214,7 +214,13 @@ tdsearch_greens_writeSelectGreensFunctions("prepData",
             printf("%s: Failed to compute grid search\n", PROGRAM_NAME);
             return EXIT_FAILURE;
         }
-        // Write the optimal synthetic, observation, and heat map
+        // Write the heatmap for gnuplot plotting
+        memset(heatMap, 0, PATH_MAX*sizeof(char));
+        sprintf(heatMap, "%s.%s.%s.%s",
+                data.obs[iobs].header.knetwk, data.obs[iobs].header.kstnm,
+                data.obs[iobs].header.kcmpnm, data.obs[iobs].header.khole);
+        ierr = tdsearch_gridSearch_writeHeatMap("prepData", heatMap, tds);
+        // Write the optimal synthetic
         memset(&synth, 0, sizeof(struct sacData_struct));
         ierr = tdSearch_gridSearch_makeSACSynthetic(iobs, tds.itopt, tds.idopt,
                                                     data, grns, tds, &synth);

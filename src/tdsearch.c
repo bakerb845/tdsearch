@@ -215,12 +215,16 @@ tdsearch_greens_writeSelectGreensFunctions("prepData",
             return EXIT_FAILURE;
         }
         // Write the heatmap for gnuplot plotting
+        // JEFF - you would probably grab tds.xcorr, tds.tstar, and tds.depth
+        // and plot a 2D image (maybe qwt_plot_spectrogram).  Note that depth
+        // increases down so you'd have to flip the y (depth) axis.
         memset(heatMap, 0, PATH_MAX*sizeof(char));
         sprintf(heatMap, "%s.%s.%s.%s",
                 data.obs[iobs].header.knetwk, data.obs[iobs].header.kstnm,
                 data.obs[iobs].header.kcmpnm, data.obs[iobs].header.khole);
         ierr = tdsearch_gridSearch_writeHeatMap("prepData", heatMap, tds);
         // Write the optimal synthetic
+        // JEFF - you would plot this synthetic next to the data.
         memset(&synth, 0, sizeof(struct sacData_struct));
         ierr = tdSearch_gridSearch_makeSACSynthetic(iobs, tds.itopt, tds.idopt,
                                                     data, grns, tds, &synth);

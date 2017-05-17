@@ -39,7 +39,7 @@ SET(LINK_LIB_ALL ${PARMT_LIBRARY} ${COMPEARTH_LIBRARY}
                  -Wl,--start-group ${MKL_LIBRARY} -Wl,--end-group ${IPP_LIBRARY}
                  ${TTIMES_LIBRARY} ${H5_LIBRARY}
                  ${INIPARSER_LIBRARY} ${MPI_C_LIBRARIES}
-                 -lm -ldl -lpthread -lpng)
+                 -lm -ldl -lpthread -lpng -lstdc++)
 #TARGET_LINK_LIBRARIES(tdSearch tdSearch_shared) 
 SET_TARGET_PROPERTIES(tdsearch PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) 
 TARGET_LINK_LIBRARIES(tdsearch tdSearch_shared ${LINK_LIB_ALL})

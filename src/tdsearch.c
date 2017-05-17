@@ -19,7 +19,8 @@ int main(int argc, char *argv[])
     struct tdSearchEventParms_struct event;
     struct tdSearchHudson_struct ffGrns;
     struct tdSearchGreens_struct grns;
-    char iniFile[PATH_MAX];
+    struct sacData_struct synth;
+    char iniFile[PATH_MAX], synthName[PATH_MAX];
     int ierr, iobs, provided;
     // Fire up MPI 
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
@@ -170,27 +171,59 @@ tdsearch_data_writeFiles("prepData", NULL, data);
         return EXIT_FAILURE;
     }
     ierr = tdsearch_greens_process(&grns);
+/*
 tdsearch_greens_writeSelectGreensFunctions("prepData",
                                            0, 1, 3, grns);
+*/
     // At this point the data and Green's functions defined on the (t*,depth)
     // grid have been pre-processed.  Now the estimation begins.
     for (iobs=0; iobs<data.nobs; iobs++)
     {
-        // Set the data for this observation
-
-        // Set the corresonding Green's functions for this observation
-
+        printf("%s: Setting forward modeling matrices...\n", PROGRAM_NAME);
+        time_tic();
+        // Set the forward modeling matrices so that I can compute
+        // d*u/(|d|_2 |u|_2) = d*(G m)/(|d|_2 |u|_2) 
+        // expediently for any given moment tensor
+        ierr = tdsearch_gridSearch_setForwardModelingMatrices(iobs, data,
+                                                              grns, &tds);
+        if (ierr != 0)
+        {
+            printf("%s: Failed to set forward modeling matrices\n",
+                   PROGRAM_NAME);
+            return EXIT_FAILURE;
+        }
+        printf("%s: Forward modeling matrix computation time: %e (s)\n",
+               PROGRAM_NAME, time_toc());
         //--------------------------------------------------------------------//
         // JEFF - here you could put an interactive loop.  In this instance   //
         // the user could continually set the moment tensor and perpetually   //
         // re-run.                                                            //
         //--------------------------------------------------------------------//
         // Set the moment tensor
-
-        // Run the estimation
-
-        // Write the optimal synthetic, observation, and heat map  
-
+        ierr = tdSearch_gridSearch_setMomentTensorFromEvent(event, &tds);
+        if (ierr != 0)
+        {
+            printf("%s: Failed to set event\n", PROGRAM_NAME);
+            return EXIT_FAILURE;
+        }
+        // Run the t*/depth grid search
+        printf("%s: Performing grid search...\n", PROGRAM_NAME);
+        ierr = tdSearch_gridSearch_performGridSearch(&tds); 
+        if (ierr != 0)
+        {
+            printf("%s: Failed to compute grid search\n", PROGRAM_NAME);
+            return EXIT_FAILURE;
+        }
+        // Write the optimal synthetic, observation, and heat map
+        memset(&synth, 0, sizeof(struct sacData_struct));
+        ierr = tdSearch_gridSearch_makeSACSynthetic(iobs, tds.itopt, tds.idopt,
+                                                    data, grns, tds, &synth);
+        memset(synthName, 0, PATH_MAX*sizeof(char));
+        sprintf(synthName, "prepData/%s.%s.%s.%s.EST.SAC",
+                synth.header.knetwk, synth.header.kstnm, 
+                synth.header.kcmpnm, synth.header.khole);
+        sacio_writeTimeSeriesFile(synthName, synth); 
+        sacio_free(&synth);
     }
     // Free space
     ierr = tdsearch_gridSearch_free(&tds);

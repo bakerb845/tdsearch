@@ -12,6 +12,7 @@
 #else
 #include <cblas.h>
 #endif 
+#include "tdsearch_greens.h"
 #include "sacio.h"
 #include "parmt_utils.h"
 #include "iscl/array/array.h"
@@ -28,9 +29,7 @@
 #define DEPTH1 3.0  /*!< Last depth in grid search (km). */
 #define DOUBLE_PAGE_SIZE sysconf(_SC_PAGE_SIZE)/sizeof(double)
 #define PAGE_SIZE sysconf(_SC_PAGE_SIZE)
-#define LDG 8
-
-static int computePageSizePadding64f(const int n);
+#define LDG 6
 
 /*!
  * @brief Sets the default grid search parameters.
@@ -47,8 +46,6 @@ int tdsearch_gridSearch_setDefaults(struct tdSearch_struct *tds)
     int ierr;
     memset(tds, 0, sizeof(struct tdSearch_struct));
     tds->maxShiftTime = DBL_MAX;
-    tds->lhaveMaxShiftTime = false;
-    tds->lrecompute = true;
     ierr = tdsearch_gridSearch_defineTstarGrid(NTSTAR, TSTAR0, TSTAR1, tds);
     ierr = tdsearch_gridSearch_defineDepthGrid(NDEPTH, DEPTH0, DEPTH1, tds);
     return 0;
@@ -67,13 +64,15 @@ int tdsearch_gridSearch_setDefaults(struct tdSearch_struct *tds)
  */
 int tdsearch_gridSearch_free(struct tdSearch_struct *tds)
 {
-    memory_free64f(&tds->delayTime);
-    memory_free64f(&tds->data);
-    memory_free64f(&tds->Gmat);
+    memory_free64f(&tds->G);
+    memory_free64f(&tds->Gxc);
     memory_free64f(&tds->tstar);
     memory_free64f(&tds->depths);
     memory_free64f(&tds->synthetic);
     memory_free64f(&tds->xcorr);
+    memory_free32i(&tds->lags);
+    memory_free32i(&tds->grnsMatrixPtr);
+    memory_free32i(&tds->grnsXCMatrixPtr);
     memset(tds, 0, sizeof(struct tdSearch_struct));
     return 0;
 }
@@ -99,7 +98,6 @@ int tdsearch_gridSearch_defineTstarGrid(const int ntstars, const double tstar0,
     const char *fcnm = "tdsearch_gridSearch_defineTstarGrid\0";
     int ierr;
     tds->ntstar = 0;
-    tds->lrecompute = true;
     if (ntstars < 1 || tstar0 < 0.0 || tstar0 > tstar1)
     {
         if (ntstars < 1)
@@ -145,7 +143,6 @@ int tdsearch_gridSearch_defineDepthGrid(const int ndepths, const double depth0,
     const char *fcnm = "tdsearch_gridSearch_defineDepthGrid\0";
     int ierr;
     tds->ndepth = 0;
-    tds->lrecompute = true;
     if (ndepths < 1 || depth0 < 0.0 || depth0 > depth1)
     {   
         if (ndepths < 1)
@@ -210,7 +207,6 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
             ierr = 1;
             goto ERROR;
         }
-        tds->lhaveMaxShiftTime = true;
     }
     // Number of t*'s
     ntstar = iniparser_getint(ini, "tdSearch:gridSearch:ntstar\0", NTSTAR);
@@ -332,225 +328,157 @@ int tdsearch_gridSearch_gridToIndex(const int it, const int id,
     return idt;
 }
 //============================================================================//
-int tdsearch_gridSearch_setGmatFromSAC(const int ngrns,
-                                       const struct sacData_struct data,
-                                       const struct sacData_struct *ZDS,
-                                       const struct sacData_struct *ZSS,
-                                       const struct sacData_struct *ZDD,
-                                       const struct sacData_struct *ZEX,
-                                       const struct sacData_struct *RDS,
-                                       const struct sacData_struct *RSS,
-                                       const struct sacData_struct *RDD,
-                                       const struct sacData_struct *REX,
-                                       const struct sacData_struct *TDS,
-                                       const struct sacData_struct *TSS,
-                                       struct tdSearch_struct *tds)
+int tdsearch_gridSearch_setForwardModelingMatrices(
+    const int iobs, 
+    const struct tdSearchData_struct data,
+    const struct tdSearchGreens_struct grns,
+    struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdsearch_gridSearch_setGmatFromSAC\0";
-    double *Gxx, *Gyy, *Gzz, *Gxy, *Gxz, *Gyz, az, baz, cmpaz, cmpinc;
-    char kcmpnm[8];
-    int icomp, id, idt, ierr, indx, it, ndepth, ndt, npts, npts0, ntstar;
-    ntstar = tdsearch_gridSearch_getNumberOfTstars(*tds);
-    ndepth = tdsearch_gridSearch_getNumberOfDepths(*tds);
-    ndt = ntstar*ndepth;
-    if (ndt < 1)
+    const char *fcnm = "tdsearch_gridSearch_setForwardModelingMatrices\0";
+    double *G, *Gxc, *work;
+    int *grnsMatrixPtr, *grnsXCMatrixPtr, indices[6],
+        i, idep, idt, ierr, indx, it, jndx, kndx,
+        lxc, lxcMax, lxc0, ntstar, ndepth, npgrns, npts;
+    // Reset pointers
+    memory_free64f(&tds->G);
+    memory_free64f(&tds->Gxc); 
+    memory_free32i(&tds->grnsMatrixPtr);
+    memory_free32i(&tds->grnsXCMatrixPtr);
+    // Check sizes
+    ndepth = grns.ndepth;
+    ntstar = grns.ntstar;
+    if (ndepth != tds->ndepth || ntstar != tds->ntstar)
     {
-        log_errorF("%s: Error no points in grid search\n", fcnm);
+        if (ndepth != tds->ndepth)
+        {
+            log_errorF("%s: Error ndepth %d != tds->ndepth %d\n",
+                       fcnm, ndepth, tds->ndepth);
+        }
+        if (ntstar != tds->ntstar)
+        {
+            log_errorF("%s: Error ntstar %d != tds->ntstar %d\n",
+                       fcnm, ntstar, tds->ntstar);
+        }
         return -1;
     }
-    if (ndt != ngrns)
+    npts = data.obs[iobs].npts;
+    if (npts < 1)
     {
-        log_errorF("%s: Error grid-search inconsistent with ngrns %d %d\n",
-                   fcnm, ndt, ngrns);
+        log_errorF("%s: Error data has no points\n", fcnm);
         return -1;
     }
-    // Space inquiry
-    npts0 = 0;
-    for (idt=0; idt<ngrns; idt++)
+    tds->dnorm = cblas_dnrm2(npts, data.obs[iobs].data, 1);
+    if (fabs(tds->dnorm) < DBL_EPSILON)
     {
-        if (idt == 0)
-        {
-            ierr = sacio_getIntegerHeader(SAC_INT_NPTS, ZDS[idt].header, &npts0);
-        }
-        ierr = sacio_getIntegerHeader(SAC_INT_NPTS, ZDS[idt].header, &npts);
-        if (ierr != 0)
-        {
-            log_errorF("%s: Error npts not set on grns %d\n", fcnm, idt); 
-            return -1;
-        }
-        if (npts != npts0)
-        {
-            log_errorF("%s: Error inconsistent sizes on grns\n", fcnm);
-            return -1; 
-        }
-    }
-    // Extract the requisite header information from the data
-    ierr = 0;
-    ierr += sacio_getFloatHeader(SAC_FLOAT_BAZ, data.header, &baz);
-    ierr += sacio_getFloatHeader(SAC_FLOAT_AZ,  data.header, &az);
-    ierr += sacio_getFloatHeader(SAC_FLOAT_CMPAZ,  data.header, &cmpinc);
-    ierr += sacio_getFloatHeader(SAC_FLOAT_CMPINC, data.header, &cmpaz);
-    ierr += sacio_getCharacterHeader(SAC_CHAR_KCMPNM, data.header, kcmpnm);
-    if (ierr != 0)
-    {
-        log_errorF("%s: Failed to get header information from data\n", fcnm);
+        log_errorF("%s: Error - data is identically zero\n", fcnm);
         return -1;
-    }
-    icomp = 1;
-    if (kcmpnm[2] == 'Z' || kcmpnm[2] == 'z' || kcmpnm[2] == '1')
-    {
-        icomp = 1;
     } 
-    else if (kcmpnm[2] == 'N' || kcmpnm[2] == 'n' || kcmpnm[2] == '2')
-    {
-        icomp = 2;
-    }
-    else if (kcmpnm[2] == 'E' || kcmpnm[2] == 'e' || kcmpnm[2] == '3')
-    {
-        icomp = 3;
-    }
-    else
-    {
-        log_errorF("%s: Can't classify component\n", fcnm);
-        return -1;
-    }
-    cmpinc = cmpinc - 90.0; // SAC to SEED convention
-    // Set space for Gmat
-    memory_free64f(&tds->Gmat);
-    tds->ldg = LDG;
-    tds->ngrns = ngrns;
-    tds->nptsGrns = npts;
-    tds->mptsGrns = npts + computePageSizePadding64f(npts);
-    tds->Gmat = memory_calloc64f(tds->ngrns*tds->mptsGrns*tds->ldg);
-    // Set workspace
-    Gxx = memory_calloc64f(npts);
-    Gyy = memory_calloc64f(npts);
-    Gzz = memory_calloc64f(npts);
-    Gxy = memory_calloc64f(npts);
-    Gxz = memory_calloc64f(npts);
-    Gyz = memory_calloc64f(npts);
-    for (id=0; id<ndepth; id++)
+    tds->npts = npts;
+    sacio_getFloatHeader(SAC_FLOAT_DELTA, data.obs[iobs].header, &tds->dt);
+    // Set the Green's functions forward modeling matrix size
+    lxcMax = 0;
+    grnsMatrixPtr = memory_calloc32i(ndepth*ntstar+1);
+    grnsXCMatrixPtr = memory_calloc32i(ndepth*ntstar+1);
+    grnsMatrixPtr[0] = 0;
+    grnsXCMatrixPtr[0] = 0;
+    for (idep=0; idep<ndepth; idep++)
     {
         for (it=0; it<ntstar; it++)
         {
-            idt = tdsearch_gridSearch_gridToIndex(it, id, *tds);
-            sacio_getIntegerHeader(SAC_INT_NPTS, ZDS[idt].header, &npts);
-            // Rotate into correct Green's functions
-            ierr = parmt_utils_ff2mtGreens64f(npts, icomp, az, baz,
-                                              cmpaz, cmpinc,
-                                              ZDS[idt].data, ZSS[idt].data,
-                                              ZDD[idt].data, ZEX[idt].data,
-                                              RDS[idt].data, RSS[idt].data,
-                                              RDD[idt].data, REX[idt].data,
-                                              TDS[idt].data, TSS[idt].data,
-                                              Gxx, Gyy, Gzz,
-                                              Gxy, Gxz, Gyz);
+            // Get the Green's functions indices
+            ierr = tdsearch_greens_getGreensFunctionsIndices(iobs, it,
+                                                             idep, grns,
+                                                             indices);
             if (ierr != 0)
             {
-                log_errorF("%s: Error mapping fund. faults to Greens fns\n",
-                           fcnm);
+                log_errorF("%s: Failed to get indices\n", fcnm);
                 return -1;
             }
-            indx = idt*tds->mptsGrns*tds->ldg;
-            cblas_dcopy(npts, Gxx, 1, &tds->Gmat[indx+0], tds->ldg); 
-            cblas_dcopy(npts, Gyy, 1, &tds->Gmat[indx+1], tds->ldg);
-            cblas_dcopy(npts, Gzz, 1, &tds->Gmat[indx+2], tds->ldg);
-            cblas_dcopy(npts, Gxy, 1, &tds->Gmat[indx+3], tds->ldg);
-            cblas_dcopy(npts, Gxz, 1, &tds->Gmat[indx+4], tds->ldg);
-            cblas_dcopy(npts, Gyz, 1, &tds->Gmat[indx+5], tds->ldg);
+            // Compute the cross-correlation length at (dep, t*)
+            idt = tdsearch_gridSearch_gridToIndex2(it, idep, ntstar);
+            lxc0 = 0;
+            for (i=0; i<6; i++)
+            {
+                indx = indices[i];
+                npgrns = grns.grns[indx].npts;
+                if (npgrns < 1)
+                {
+                    log_errorF("%s: Error - no points in grns fn\n", fcnm);
+                    return -1;
+                }
+                lxc = npgrns + npts - 1;
+                lxcMax = MAX(lxcMax, lxc);
+                if (i == 0)
+                {
+                    lxc0 = lxc;
+                    grnsMatrixPtr[idt+1] = grnsMatrixPtr[idt] + npgrns;
+                    grnsXCMatrixPtr[idt+1] = grnsXCMatrixPtr[idt] + lxc;
+                }
+                if (lxc != lxc0)
+                {
+                    log_errorF("%s: Inconsistent column sizes\n", fcnm);
+                    return -1;
+                }
+            }
         }
     }
-    memory_free64f(&Gxx);
-    memory_free64f(&Gyy);
-    memory_free64f(&Gzz);
-    memory_free64f(&Gxy);
-    memory_free64f(&Gxz);
-    memory_free64f(&Gyz); 
+    if (lxcMax < 1)
+    {
+        log_errorF("%s: Error - cross-correlations are empty\n", fcnm);
+        return -1;
+    }
+    // Set the forward modeling matrices
+    tds->nptsGrns = grnsMatrixPtr[ndepth*ntstar];
+    G = memory_calloc64f(LDG*grnsMatrixPtr[ndepth*ntstar]);
+    Gxc = memory_calloc64f(LDG*grnsXCMatrixPtr[ndepth*ntstar]);
+    work = memory_calloc64f(lxcMax);
+    for (idep=0; idep<ndepth; idep++)
+    {
+        for (it=0; it<ntstar; it++)
+        {
+            idt = tdsearch_gridSearch_gridToIndex2(it, idep, ntstar);
+            // Get the Green's functions indices
+            ierr = tdsearch_greens_getGreensFunctionsIndices(iobs, it, 
+                                                             idep, grns,
+                                                             indices);
+            // Compute the cross-correlation length at (dep, t*)
+            idt = tdsearch_gridSearch_gridToIndex2(it, idep, ntstar);
+            jndx = LDG*grnsMatrixPtr[idt];
+            kndx = LDG*grnsXCMatrixPtr[idt];
+            for (i=0; i<6; i++)
+            {
+                indx = indices[i];
+                npgrns = grns.grns[indx].npts;
+                signal_convolve_correlate64f_work(npts, data.obs[iobs].data,
+                                                  npgrns, grns.grns[indx].data,
+                                                  CONVCOR_FULL,
+                                                  lxc, work);
+                //printf("%e %e\n",cblas_dnrm2(npgrns, grns.grns[indx].data, 1),
+                //               cblas_dnrm2(lxc, work, 1));
+                cblas_dcopy(npgrns, grns.grns[indx].data, 1, &G[jndx+i],   LDG);
+                cblas_dcopy(lxc,    work,                 1, &Gxc[kndx+i], LDG);
+            }
+            //printf("%d\n", grnsMatrixPtr[idt+1]);
+        }
+    }
+    tds->G = G;
+    tds->Gxc = Gxc;
+    tds->grnsMatrixPtr = grnsMatrixPtr;
+    tds->grnsXCMatrixPtr = grnsXCMatrixPtr;
+    memory_free64f(&work);
     return 0;
 }
 //============================================================================//
 /*!
- * @brief Computes the synthetic seismogram on tdSearch structure corresponding
- *        to the previously set Green's functions and moment tensor for the 
- *        it'th t* and id'th depth. 
- *
- * @param[in] it          t* index [0,ntstar-1].
- * @param[in] id          Depth index [0,ndepth-1].
- *
- * @param[in,out] tds     On input the Green's functions matrix and moment
- *                        tensor has been set.
- *                        On output the synthetic has been computed.
- *
- * @result 0 indicates success.
- *
- * @author Ben Baker, ISTI
- *
- */ 
-int tdSearch_computeSynthetic(const int it, const int id,
-                              struct tdSearch_struct *tds)
-{
-    const char *fcnm = "tdSearch_computeSynthetic\0";
-    int idt, indx, jndx;
-    idt = tdsearch_gridSearch_gridToIndex(it, id, *tds);
-    if (!tds->lhaveMT || !tds->lhaveGrns ||
-        it < 0 || it > tds->ntstar - 1 ||
-        id < 0 || id > tds->ndepth - 1)
-    {
-        if (!tds->lhaveMT){log_errorF("%s: moment tensor not set\n", fcnm);}
-        if (!tds->lhaveGrns){log_errorF("%s: grns fns not set\n", fcnm);}
-        if (it < 0 || it > tds->ntstar - 1)
-        {
-            log_errorF("%s: Error invalid t* index %d\n", fcnm, it);
-        } 
-        if (id < 0 || id > tds->ndepth - 1)
-        {
-            log_errorF("%s: Error invalid depth index %d\n", fcnm, id);
-        }
-        return -1;
-    }
-    if (idt < 0 || idt > tds->ngrns - 1)
-    {
-        log_errorF("%s: Well this is strange; idt is wrong\n", fcnm);
-        return -1;
-    }
-    indx = idt*tds->mptsGrns*tds->ldg;
-    jndx = idt*tds->mptsGrns;
-    cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                tds->nrowsGmat, tds->ncolsGmat, 1.0, &tds->Gmat[indx], tds->ldg,
-                tds->mt, 1, 0.0, &tds->synthetic[jndx], 1);
-    return 0;
-}
-
-int tdSearch_gridSearch_computeAllSynthetics(struct tdSearch_struct *tds)
-{
-    const char *fcnm = "tdSearch_gridSearch_computeAllSynthetics\0";
-    int ndepth, ngrid, ntstar, nrowsAll;
-    if (!tds->lhaveMT || !tds->lhaveGrns)
-    {
-        if (!tds->lhaveMT){log_errorF("%s: moment tensor not set\n", fcnm);}
-        if (!tds->lhaveGrns){log_errorF("%s: grns fns not set\n", fcnm);}
-        return -1; 
-    }   
-    ndepth = tdsearch_gridSearch_getNumberOfDepths(*tds);
-    ntstar = tdsearch_gridSearch_getNumberOfTstars(*tds);
-    ngrid = ndepth*ntstar;
-    nrowsAll = ngrid*tds->mptsGrns;
-    cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                nrowsAll, tds->ncolsGmat, 1.0, tds->Gmat, tds->ldg,
-                tds->mt, 1, 0.0, tds->synthetic, 1); 
-    return 0;
-}
-
-/*!
- * @brief Sets the moment tensor on the tdSearch structure
+ * @brief Sets the moment tensor on the tdSearch structure.
  *
  * @param[in] m6    moment tensor in NED system packed: 
  *                   \f$ \{ m_{xx}, m_{yy}, m_{zz}, 
- *                         m_{xy}, m_{xz}, m_{yz} \} \f$ 
+ *                         m_{xy}, m_{xz}, m_{yz} \} \f$.
  *
- * @param[out] tds  on successful exit contains the moment tensor
+ * @param[out] tds  On successful exit contains the moment tensor.
  *
- * @result 0 indicates success
+ * @result 0 indicates success.
  *
  * @author Ben Baker, ISTI
  *
@@ -571,164 +499,225 @@ int tdSearch_gridSearch_setMomentTensor(const double *__restrict__ m6,
     return 0;
 }
 //============================================================================//
-int tdSearch_gridSearch_getSynthetic(const int it, const int id,
-                                     const struct tdSearch_struct tds,
-                                     const int nwork, int *npts,
-                                     double *__restrict__ synth)
+int tdSearch_gridSearch_setMomentTensorFromElements(
+    const double m11, const double m22, const double m33,
+    const double m12, const double m13, const double m23,
+    const enum compearthCoordSystem_enum basis,
+    struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdSearch_gridSearch_getSynthetic\0";
-    int idt, jndx;
-    *npts = tds.nptsGrns;
-    if (nwork < 0){return 0;}
-    if (it < 0 || it > tds.ntstar - 1 || id < 0 || id > tds.ndepth - 1)
+    const char *fcnm = "tdSearch_gridSearch_setMomentTensorFromElements\0";
+    double mt[6], mtNED[6];
+    int ierr;
+    tds->lhaveMT = false;
+    mt[0] = m11;
+    mt[1] = m22;
+    mt[2] = m33;
+    mt[3] = m12;
+    mt[4] = m13;
+    mt[5] = m23;
+    ierr = compearth_convertMT(basis, NED, mt, mtNED);
+    if (ierr != 0)
     {
-        log_errorF("%s: Invalid indicies %d %d\n", fcnm, it, id);
+        printf("%s: Failed to set moment tensor\n", fcnm);
         return -1;
     }
-    if (*npts > nwork || synth == NULL)
+    ierr = tdSearch_gridSearch_setMomentTensor(mtNED, tds);
+    if (ierr != 0)
     {
-        if (*npts > nwork)
-        {
-            log_errorF("%s: nwork %d is too small - resize to %d\n",
-                       fcnm, nwork, *npts);
-            return -1;
-        }
-        if (synth == NULL)
-        {
-            log_errorF("%s: Error synth cannot be NULL\n", fcnm);
-            return -1;
-        }
+        printf("%s: Failed to set moment tensor\n", fcnm);
+        return -1;
     }
-    idt = tdsearch_gridSearch_gridToIndex(it, id, tds);
-    jndx = idt*tds.mptsGrns;
-    array_copy64f_work(*npts, &tds.synthetic[jndx], synth);
     return 0;
 }
 //============================================================================//
-/*!
- * @brief Computes the cross-correlation grid search over t* and depth
- *
- * @param[in,out] tds     On input contains Green's functions, data, and
- *                        grid search parameters.
- *                        On output contains the cross-correlation evaluated
- *                        at all points.
- *
- * @result 0 indicates success.
- *
- * @author Ben Baker, ISTI
- *
- */
-int tdSearch_gridSearch_computeGridSearch(struct tdSearch_struct *tds)
+int tdSearch_gridSearch_setMomentTensorFromEvent(
+    const struct tdSearchEventParms_struct event,
+    struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdSearch_gridSearch_computeGridSearch\0";
-    double *synth, *xcsig, ccmax, maxShiftTime, sqrtd2, sqrtg2;
-    int id, idelay, idt, ierr, ierr1, imax, it, jndx, lc;
-    //------------------------------------------------------------------------//
-    //
-    // make sure we have everything we need
-    ierr = 0;
-    if (!tds->lhaveData || !tds->lhaveGrns ||
-        !tds->lhaveMT   || !tds->lhaveTD)
-    {
-        if (!tds->lhaveData){log_errorF("%s: data not set\n", fcnm);}
-        if (!tds->lhaveGrns){log_errorF("%s: greens fns not set\n", fcnm);}
-        if (!tds->lhaveMT){log_errorF("%s: moment tensor not set\n", fcnm);}
-        if (!tds->lhaveTD){log_errorF("%s: gridsearch size not set\n", fcnm);}
-        return -1;
-    }
-    maxShiftTime = DBL_MAX;
-    if (tds->lhaveMaxShiftTime){maxShiftTime = tds->maxShiftTime;}
-    // compute all synthetics
-    tdSearch_gridSearch_computeAllSynthetics(tds);
-    // get the energy in the data for the normalization 
-    sqrtd2 = cblas_dnrm2(tds->npts, tds->data, 1);
-    lc = tds->npts + tds->nptsGrns - 1;
-    // Loop on the t* and depths
-/*
-    #pragma omp parallel \
-     firstprivate (sqrtd2, lc) \
-     private (ccmax, id, idelay, idt, ierr1, imax, jndx, it, nptsGrns, sqrtg2, xcsig) \
-     shared (fcnm, maxShiftTime, tds) \
-     default (none) reduction(+:ierr)
-    {
-*/
-    xcsig = memory_calloc64f(lc);
-    synth = memory_calloc64f(tds->nptsGrns);
-/*
-    #pragma for collapse(2)
-*/
-    for (id=0; id<tds->ndepth; id++)
-    {
-        for (it=0; it<tds->ntstar; it++)
-        {
-            idt = id*tds->ntstar + it;
-            tds->xcorr[idt] =-1.0; // Set to a failure
- /*
-            ierr = tdSearch_gridSearch_getSynthetic(it, id, *tds, tds->nptsGrns, &nptsGrns, synth);
- */
-            // Compute the synthetic
-            ierr1 = tdSearch_computeSynthetic(it, id, tds);
-            if (ierr1 != 0)
-            {
-                log_errorF("%s: Error computing synthetic for (t*,d)=(%d,%d)\n",
-                           fcnm, it, id);
-                ierr = ierr + 1;
-                continue;
-            }
-            // Compute the cross-correlation
-            jndx = idt*tds->mptsGrns;
-            ierr1 = signal_convolve_correlate64f_work(tds->npts,
-                                                      tds->data,
-                                                      tds->nptsGrns,
-                                                      &tds->synthetic[jndx],
-                                                      CONVCOR_FULL,
-                                                      lc, xcsig);
-            if (ierr1 != 0)
-            {
-                log_errorF("%s: Error computing xcorr for (t*,d)=(%d,%d)\n",
-                           fcnm, it, id);
-                ierr = ierr + 1;
-                continue;
-            }
-            // Take the maximum positive cross-correlation
-            imax = array_argmax64f(lc, xcsig);
-            idelay = tds->nptsGrns - 1 - imax;
-            sqrtg2 = cblas_dnrm2(tds->nptsGrns, &tds->synthetic[jndx], 1);
-            ccmax = xcsig[imax]/(sqrtg2*sqrtd2);
-            tds->delayTime[idt] = (double) idelay*tds->dt; 
-            if (tds->delayTime[idt] > maxShiftTime) 
-            {
-                log_warnF("%s: Lag %f exceed max allowable time %f\n",
-                          fcnm, tds->delayTime[idt], tds->maxShiftTime);
-                ccmax =-1.0;
-            }
-            tds->xcorr[idt] = ccmax;
-        } // Loop on t*
-    } // Loop on depths
-    memory_free64f(&synth);
-    memory_free64f(&xcsig);
-/*
-    }
-*/
+    const char *fcnm = "tdSearch_gridSearch_setMomentTensorFromEvent\0";
+    int ierr;
+    ierr = tdSearch_gridSearch_setMomentTensorFromElements(
+                    event.m11, event.m22, event.m33,
+                    event.m12, event.m13, event.m23,
+                    event.basis, tds);
     if (ierr != 0)
     {
-        log_errorF("%s: Errors encountered during gridsearch\n", fcnm);
+        log_errorF("%s: Error setting moment tensor\n", fcnm);
         return -1;
     }
     return 0;
 }
-
-static int computePageSizePadding64f(const int n)
+//============================================================================//
+int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds)
 {
-    size_t mod, pad; 
-    int ipad;
-    // Set space and make G matrix
-    pad = 0; 
-    mod = ((size_t) n*sizeof(double))%PAGE_SIZE;
-    if (mod != 0)
-    {    
-        pad = (PAGE_SIZE - mod)/sizeof(double);
-    }    
-    ipad = (int) pad; 
-    return ipad;
+    const char *fcnm = "tdSearch_gridSearch_performGridSearch\0";
+    double *u, *ud, dnorm, unorm, xc;
+    int id, idelay, idt, indx, iopt, it, jndx, l1, l2, lxc, maxlags,
+        ndepth, ndt, nlag, npts, npgrns, nrows, ntstar;
+    const int ncols = 6;
+    tds->itopt =-1;
+    tds->idopt =-1;
+    ndepth = tds->ndepth;
+    ntstar = tds->ntstar;
+    ndt = ntstar*ndepth;
+    dnorm = tds->dnorm;
+    memory_free64f(&tds->xcorr);
+    memory_free64f(&tds->synthetic);
+    memory_free32i(&tds->lags);
+    // Some easy checks
+    if (!tds->lhaveMT)
+    {
+        log_errorF("%s: Error moment tensor not set\n", fcnm);
+        return -1;
+    }
+    if (tds->G == NULL || tds->Gxc == NULL ||
+        tds->grnsMatrixPtr == NULL || tds->grnsXCMatrixPtr == NULL)
+    {
+        log_errorF("%s: You need to set the forward modeling matrices\n", fcnm);
+        return -1;
+    }
+    maxlags =-1;
+    if (tds->maxShiftTime < DBL_MAX)
+    {
+        maxlags = (int) (tds->maxShiftTime/tds->dt + 0.5);
+    }
+    // Set output space
+    tds->xcorr = memory_calloc64f(ndt);
+    tds->lags = memory_calloc32i(ndt);
+    npts = tds->npts;
+    // Compute the cross-correlation
+    nrows = tds->grnsXCMatrixPtr[ndt];
+    ud = memory_calloc64f(nrows);
+    cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                nrows, ncols, 1.0, tds->Gxc, LDG,
+                tds->mt, 1, 0.0, ud, 1);
+    // Compute the synthetics
+    nrows = tds->grnsMatrixPtr[ndt]; 
+    u = memory_calloc64f(nrows);
+    cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                nrows, ncols, 1.0, tds->G, LDG,
+                tds->mt, 1, 0.0, u, 1);
+    // Now do the grid search
+    for (id=0; id<ndepth; id++)
+    {
+        for (it=0; it<ntstar; it++)
+        {
+            idt = tdsearch_gridSearch_gridToIndex(it, id, *tds);
+            indx = tds->grnsMatrixPtr[idt];
+            jndx = tds->grnsXCMatrixPtr[idt];
+            lxc = tds->grnsXCMatrixPtr[idt+1]
+                - tds->grnsXCMatrixPtr[idt];
+            npgrns = tds->grnsMatrixPtr[idt+1]
+                   - tds->grnsMatrixPtr[idt];
+            unorm = cblas_dnrm2(npgrns, &u[indx], 1);
+            if (maxlags < 0)
+            {
+                iopt = array_argmax64f(lxc, &ud[jndx]);
+            }
+            else
+            {
+                l1 = MAX(0,  npgrns - maxlags);
+                l2 = MIN(lxc-1, npgrns + maxlags);
+                nlag = l2 - l1 + 1;
+                iopt = l1 + array_argmax64f(nlag, &ud[jndx+l1]);
+ /*
+for (int k=0; k<lxc; k++)
+{
+printf("%d %e\n",k, ud[jndx+k]);
 }
+getchar();
+*/
+            }
+            tds->xcorr[idt] = ud[jndx+iopt]/(dnorm*unorm);
+            // Compute the lag where the times range from [-npts+1:npgrns-1]
+            tds->lags[idt] =-npgrns + 1 + iopt;
+            //printf("%f %f %f %d\n", tds->depths[id], tds->tstar[it], xc, idelay);
+        }
+        //printf("\n");
+    }
+    tds->synthetic = u;
+    memory_free64f(&ud);
+    // Compute the optimum indices
+    iopt = array_argmax64f(ndt, tds->xcorr);
+    tds->idopt = iopt/tds->ntstar;
+    tds->itopt = iopt - tds->idopt*tds->ntstar;
+    if (tdsearch_gridSearch_gridToIndex(tds->itopt, tds->idopt, *tds) != iopt)
+    {
+        log_warnF("%s: Switching to slow optimum computation\n", fcnm);
+        for (id=0; id<ndepth; id++)
+        {
+            for (it=0; it<ntstar; it++)
+            {
+                idt = tdsearch_gridSearch_gridToIndex(it, id, *tds);
+                if (iopt == idt)
+                {
+                    tds->idopt = id;
+                    tds->itopt = it;
+                } 
+            }
+        }
+    }
+    return 0;
+}
+//============================================================================//
+int tdSearch_gridSearch_makeSACSynthetic(
+    const int iobs, const int it, const int id,
+    const struct tdSearchData_struct data,
+    const struct tdSearchGreens_struct grns,
+    const struct tdSearch_struct tds,
+    struct sacData_struct *synth)
+{
+    const char *fcnm = "tdSearch_gridSearch_getSynthetic\0";
+    double epoch;
+    int idt, ierr, igrns, npGrns;
+    memset(synth, 0, sizeof(struct sacData_struct));
+    // Pick off the header
+    if (it < 0 || it >= tds.ntstar || id < 0 || id >= tds.ndepth)
+    {
+        log_errorF("%s: Invalid (t*,depth) index (%d,%d)\n", fcnm, it, id);
+        return - 1;
+    }
+    if (tds.synthetic == NULL || tds.lags == NULL)
+    {
+        if (tds.synthetic == NULL)
+        {
+            log_errorF("%s: Error tds.synethetic is NULL\n", fcnm);
+        }
+        if (tds.lags == NULL)
+        {
+            log_errorF("%s: Error tds.lags is NULL\n", fcnm);
+        }
+        return -1;
+    }
+    idt = tdsearch_gridSearch_gridToIndex(it, id, tds);
+    igrns = tdsearch_greens_getGreensFunctionIndex(G11_GRNS, iobs,
+                                                   it, id, grns);
+    if (idt < 0 || igrns < 0)
+    {
+        log_errorF("%s: Failed getting an index\n", fcnm);
+        return -1;
+    }
+    // Copy header
+    sacio_copyHeader(grns.grns[igrns].header, &synth->header); 
+    // Copy corresponding synthetic
+    synth->npts = grns.grns[igrns].npts;
+    synth->data = sacio_malloc64f(synth->npts);
+    npGrns = tds.grnsMatrixPtr[idt+1] - tds.grnsMatrixPtr[idt];
+    if (npGrns != synth->npts)
+    {
+        log_errorF("%s: Size mismatch\n", fcnm);
+        sacio_free(synth);
+        return -1; 
+    }
+    array_copy64f_work(npGrns, &tds.synthetic[tds.grnsMatrixPtr[idt]],
+                       synth->data);
+    // Get the component inline with the estimate
+    sacio_setCharacterHeader(SAC_CHAR_KCMPNM, data.obs[iobs].header.kcmpnm,
+                             &synth->header);
+    // Fix the timing
+    ierr = sacio_getEpochalStartTime(synth->header, &epoch);
+    epoch = epoch + (double) tds.lags[idt]*tds.dt;
+    sacio_setEpochalStartTime(epoch, &synth->header);
+    return 0;
+}
+//============================================================================//

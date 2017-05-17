@@ -166,6 +166,24 @@ int tdsearch_greens_getGreensFunctionIndex(
     return indx;
 }
 //============================================================================//
+int tdsearch_greens_getGreensFunctionsIndices(
+    const int iobs, const int itstar, const int idepth,
+    const struct tdSearchGreens_struct grns, int indices[6])
+{
+    int i, ierr;
+    const enum tdSearchGreens_enum mtTerm[6] = 
+       {G11_GRNS, G22_GRNS, G33_GRNS, G12_GRNS, G13_GRNS, G23_GRNS};
+    ierr = 0;
+    for (i=0; i<6; i++)
+    {
+        indices[i] = tdsearch_greens_getGreensFunctionIndex(mtTerm[i],
+                                                          iobs, itstar, idepth,
+                                                          grns); 
+        if (indices[i] < 0){ierr = ierr + 1;}
+    } 
+    return ierr;
+}
+//============================================================================//
 /*!
  * @brief Releases memory on the Greens functions structure.
  *

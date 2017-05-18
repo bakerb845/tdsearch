@@ -488,7 +488,7 @@ int tdSearch_gridSearch_setMomentTensor(const double *__restrict__ m6,
 {
     const char *fcnm = "tdSearch_setMomentTensor\0";
     tds->lhaveMT = false;
-    array_zeros64f_work(8, tds->mt);
+    array_zeros64f_work(8, tds->mt); // NOTE - this is padded
     if (m6 == NULL)
     {
         log_errorF("%s: Error moment tensor cannot be NULL\n", fcnm);

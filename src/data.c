@@ -1082,6 +1082,7 @@ int tdsearch_data_process(struct tdSearchData_struct *data)
             sacio_freeData(&data->obs[k]);
             if (nyAll[k] > 0)
             {
+                sacio_freeData(&data->obs[k]);
                 data->obs[k].data = sacio_malloc64f(nyAll[k]);
                 data->obs[k].npts = nyAll[k];
                 sacio_setIntegerHeader(SAC_INT_NPTS, nyAll[k],

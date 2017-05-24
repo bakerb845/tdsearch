@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     // Initialize
     memset(iniFile, 0, PATH_MAX*sizeof(char));
     memset(&event, 0, sizeof(struct tdSearchEventParms_struct));
-    memset(&data, 0, sizeof(struct tdSearchEventParms_struct));
+    memset(&data, 0, sizeof(struct tdSearchData_struct));
     memset(&ffGrns, 0, sizeof(struct tdSearchHudson_struct));
     memset(&grns, 0, sizeof(struct tdSearchGreens_struct));
     memset(&tds, 0, sizeof(struct tdSearch_struct));

@@ -53,11 +53,19 @@ int main(int argc, char *argv[])
     }
     // Initialize data to process from ini file
     ierr = tdsearch_data_initializeFromFile(iniFile,
-                                            &targetDt, &cutStart, &cutEnd,
                                             &data);
     if (ierr != 0)
     {
         printf("%s: Failed to read the data\n", PROGRAM_NAME);
+        return EXIT_FAILURE;
+    }
+    ierr = tdsearch_data_getDefaultDTAndWindowFromIniFile(iniFile,
+                                                          &targetDt,
+                                                          &cutStart,
+                                                          &cutEnd);
+    if (ierr != 0)
+    {   
+        printf("%s: Failed to read the processing defaults\n", PROGRAM_NAME);
         return EXIT_FAILURE;
     }
     // Initialize the forward modeling parameters for hudson and the

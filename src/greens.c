@@ -15,6 +15,7 @@
 #include "ispl/process.h"
 #include "iscl/array/array.h"
 #include "iscl/log/log.h"
+#include "iscl/fft/fft.h"
 #include "iscl/memory/memory.h"
 #include "iscl/os/os.h"
 
@@ -329,8 +330,8 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
     char knetwk[8], kstnm[8], kcmpnm[8], khole[8], phaseName[8],
          phaseNameGrns[8];
     double az, baz, cmpaz, cmpinc, cmpincSEED, epoch, epochNew,
-           evla, evlo, o, pickTime, pickTimeGrns, stel, stla, stlo;
-    int i, icomp, id, ierr, idx, indx, iobs, it, kndx, npts;
+           evla, evlo, o, pick, pickTime, pickTimeGrns, stel, stla, stlo;
+    int i, icomp, id, ierr, idx, indx, iobs, it, kndx, l, npts;
     const char *kcmpnms[6] = {"GXX\0", "GYY\0", "GZZ\0",
                               "GXY\0", "GXZ\0", "GYZ\0"};
     const double xmom = 1.0;     // no confusing `relative' magnitudes 
@@ -340,6 +341,12 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                  // Dyne-cm but I work in N-m
     // Given a M0 in Newton-meters get a seismogram in meters
     const double xscal = xmom*xcps*cm2m*dcm2nm;
+    const int nTimeVars = 11; 
+    const enum sacHeader_enum pickVars[11]
+       = {SAC_FLOAT_A,
+          SAC_FLOAT_T0, SAC_FLOAT_T1, SAC_FLOAT_T2, SAC_FLOAT_T3,
+          SAC_FLOAT_T4, SAC_FLOAT_T5, SAC_FLOAT_T6, SAC_FLOAT_T7,
+          SAC_FLOAT_T8, SAC_FLOAT_T9};
     //memset(grns, 0, sizeof(struct tdSearchGreens_struct));
     grns->ntstar = ffGrns.ntstar;
     grns->ndepth = ffGrns.ndepth;
@@ -478,6 +485,20 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                     epochNew = epoch + (pickTime - o) - pickTimeGrns;
                     sacio_setEpochalStartTime(epochNew,
                                               &grns->grns[indx+i].header);
+                    // Update the pick times
+                    for (l=0; l<11; l++)
+                    {
+                        ierr = sacio_getFloatHeader(pickVars[l],
+                                                    grns->grns[indx+i].header,
+                                                    &pick);
+                        if (ierr == 0)
+                        {
+                            pick = pick + o;
+                            sacio_setFloatHeader(pickVars[l],
+                                                 pick,
+                                                 &grns->grns[indx+i].header);
+                        }
+                    } 
                 }
                 ierr = parmt_utils_ff2mtGreens64f(npts, icomp,
                                                   az, baz,
@@ -511,6 +532,207 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
         }
     }
     return 0;
+}
+//============================================================================//
+/*!
+ * @brief Repicks the Green's functions onset time with an STA/LTA picker.
+ *
+ * @param[in] sta        Short term average window length (seconds).
+ * @param[in] lta        Long term average window length (seconds).
+ * @param[in] threshPct  Percentage of max STA/LTA after which an arrival
+ *                       is declared.
+ * @param[in] iobs       C numbered observation index.
+ * @param[in] itstar     C numbered t* index.
+ * @param[in] idepth     C numbered depth index.
+ *
+ * @param[in,out] grns   On input contains the Green's functions.
+ *                       On output the first arrival time has been modified
+ *                       with an STA/LTA picker.
+ *
+ * @brief 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
+int tdsearch_greens_repickGreensWithSTALTA(
+    const double sta, const double lta, const double threshPct,
+    const int iobs, const int itstar, const int idepth,
+    struct tdSearchGreens_struct *grns)
+{
+    const char *fcnm = "tdsearch_greens_repickGreensWithSTALTA\0";
+    struct stalta_struct stalta;
+    double *charFn, *g, *Gxx, *Gyy, *Gzz, *Gxy, *Gxz, *Gyz,
+           *gxxPad, *gyyPad, *gzzPad, *gxyPad, *gxzPad, *gyzPad,
+           charMax, dt, tpick;
+    int indices[6], ierr, k, npts, nlta, npad, nsta, nwork, prePad;
+    // Check STA/LTA 
+    ierr = 0;
+    memset(&stalta, 0, sizeof(struct stalta_struct));
+    if (lta < sta || sta < 0.0)
+    {
+        if (lta < sta){log_errorF("%s: Error lta < sta\n", fcnm);}
+        if (sta < 0.0){log_errorF("%s: Error sta is negative\n", fcnm);}
+        return -1;
+    }
+    ierr = tdsearch_greens_getGreensFunctionsIndices(iobs, itstar, idepth,
+                                                     *grns, indices);
+    if (ierr != 0)
+    {
+        log_errorF("%s: Failed to get Greens functions indicies\n", fcnm);
+        return -1;
+    }
+    ierr = sacio_getIntegerHeader(SAC_INT_NPTS,
+                                  grns->grns[indices[0]].header, &npts);
+    if (ierr != 0 || npts < 1)
+    {
+        if (ierr != 0)
+        {
+            log_errorF("%s: Error getting number of points from header\n",
+                       fcnm);
+        }
+        else
+        {
+            log_errorF("%s: ERror no data points\n", fcnm);
+        }
+        return -1;
+    }
+    ierr = sacio_getFloatHeader(SAC_FLOAT_DELTA,
+                                grns->grns[indices[0]].header, &dt);
+    if (ierr != 0 || dt <= 0.0)
+    {
+        if (ierr != 0){log_errorF("%s: failed to get dt\n", fcnm);}
+        if (dt <= 0.0){log_errorF("%s: invalid sampling period\n", fcnm);}
+        return -1;
+    }
+    // Define the windows
+    nsta = (int) (sta/dt + 0.5);
+    nlta = (int) (lta/dt + 0.5);
+    prePad = MAX(64, fft_nextpow2(nlta));
+    npad = prePad + npts;
+    // Set space
+    gxxPad = memory_calloc64f(npad);
+    gyyPad = memory_calloc64f(npad);
+    gzzPad = memory_calloc64f(npad);
+    gxyPad = memory_calloc64f(npad);
+    gxzPad = memory_calloc64f(npad);
+    gyzPad = memory_calloc64f(npad);
+    charFn = memory_calloc64f(npad);
+    // Reference pointers
+    Gxx = grns->grns[indices[0]].data;
+    Gyy = grns->grns[indices[1]].data;
+    Gzz = grns->grns[indices[2]].data;
+    Gxy = grns->grns[indices[3]].data;
+    Gxz = grns->grns[indices[4]].data;
+    Gyz = grns->grns[indices[5]].data;
+    // Pre-pad signals
+    array_set64f_work(prePad, Gxx[0], gxxPad);
+    array_set64f_work(prePad, Gyy[0], gyyPad);
+    array_set64f_work(prePad, Gzz[0], gzzPad); 
+    array_set64f_work(prePad, Gxy[0], gxyPad);
+    array_set64f_work(prePad, Gxz[0], gxzPad);
+    array_set64f_work(prePad, Gyz[0], gyzPad);
+    // Copy rest of array
+    array_copy64f_work(npts, Gxx, &gxxPad[prePad]);
+    array_copy64f_work(npts, Gyy, &gyyPad[prePad]);
+    array_copy64f_work(npts, Gzz, &gzzPad[prePad]);
+    array_copy64f_work(npts, Gxy, &gxyPad[prePad]);
+    array_copy64f_work(npts, Gxz, &gxzPad[prePad]);
+    array_copy64f_work(npts, Gyz, &gyzPad[prePad]);
+    // apply the sta/lta
+    for (k=0; k<6; k++)
+    {
+        g = NULL;
+        if (k == 0)
+        {
+            g = gxxPad;
+        }
+        else if (k == 1)
+        {
+            g = gyyPad;
+        }
+        else if (k == 2)
+        {
+            g = gzzPad;
+        }
+        else if (k == 3)
+        {
+            g = gxyPad;
+        }
+        else if (k == 4)
+        {
+            g = gxzPad;
+        }
+        else if (k == 5)
+        {
+            g = gyzPad;
+        }
+        ierr = stalta_setShortAndLongTermAverage(nsta, nlta, &stalta);
+        if (ierr != 0)
+        {
+            printf("%s: Error setting STA/LTA\n", fcnm);
+            break;
+        }
+        ierr = stalta_setData64f(npad, g, &stalta);
+        if (ierr != 0)
+        {
+            printf("%s: Error setting data\n", fcnm);
+            break;
+        }
+        ierr = stalta_applySTALTA(&stalta);
+        if (ierr != 0)
+        {
+            printf("%s: Error applying STA/LTA\n", fcnm);
+            break;
+        }
+        ierr = stalta_getData64f(stalta, npad, &nwork, g);
+        if (ierr != 0)
+        {
+            printf("%s: Error getting result\n", fcnm);
+            break;
+        }
+        cblas_daxpy(npad, 1.0, g, 1, charFn, 1);
+        stalta_resetInitialConditions(&stalta);
+        stalta_resetFinalConditions(&stalta);
+        g = NULL;
+    }
+    // Compute the pick time
+    charMax = array_max64f(npts, &charFn[prePad]);
+    tpick =-1.0;
+    for (k=prePad; k<npad; k++)
+    {
+        if (charFn[k] > 0.01*threshPct*charMax)
+        {
+            tpick = (double) (k - prePad)*dt;
+            break;
+        }
+    }
+    if (tpick ==-1.0)
+    {
+        tpick = (double) (array_argmax64f(npad, charFn) - prePad)*dt;
+    }
+    // Overwrite the pick; by this point should be on SAC_FLOAT_A
+    //double apick;
+    //sacio_getFloatHeader(SAC_FLOAT_A, grns->grns[indices[0]].header, &apick);
+    for (k=0; k<6; k++)
+    {
+        sacio_setFloatHeader(SAC_FLOAT_A, tpick,
+                             &grns->grns[indices[k]].header);
+    }
+    // Dereference pointers and free space
+    Gxx = NULL;
+    Gyy = NULL;
+    Gzz = NULL;
+    Gxy = NULL;
+    Gxz = NULL;
+    Gyz = NULL;
+    memory_free64f(&gxxPad);
+    memory_free64f(&gyyPad);
+    memory_free64f(&gzzPad);
+    memory_free64f(&gxyPad);
+    memory_free64f(&gxzPad);
+    memory_free64f(&gyzPad);
+    memory_free64f(&charFn);
+    return ierr;
 }
 //============================================================================//
 /*!
@@ -769,6 +991,8 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
                 process_freeSerialCommands(&commands);
                 process_freeParallelCommands(&parallelCommands);
                 memory_free64f(&data);
+//TODO fix this
+tdsearch_greens_repickGreensWithSTALTA(2.0, 10.0, 80.0, iobs, it, idep, grns);
             }
         }
     }

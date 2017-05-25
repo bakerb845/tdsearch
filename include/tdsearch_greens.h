@@ -16,6 +16,10 @@ int tdsearch_greens_modifyProcessingCommands(
     const int iodva,
     const double cut0, const double cut1, const double targetDt,
     struct tdSearchGreens_struct *grns);
+int tdsearch_greens_repickGreensWithSTALTA(
+    const double sta, const double lta, const double threshPct,
+    const int iobs, const int itstar, const int idepth,
+    struct tdSearchGreens_struct *grns);
 int tdsearch_greens_getGreensFunctionsIndices(
     const int iobs, const int itstar, const int idepth,
     const struct tdSearchGreens_struct grns, int indices[6]);

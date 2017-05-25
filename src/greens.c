@@ -513,7 +513,11 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
     return 0;
 }
 //============================================================================//
+/*!
+ * @brief Modifies the Green's functions processing commands.
+ */
 int tdsearch_greens_modifyProcessingCommands(
+    const int iodva,
     const double cut0, const double cut1, const double targetDt,
     struct tdSearchGreens_struct *grns)
 {
@@ -537,7 +541,7 @@ int tdsearch_greens_modifyProcessingCommands(
         options.cut1 = cut1;
         options.targetDt = targetDt;
         options.ldeconvolution = false;
-        options.iodva = 1; // TODO change me
+        options.iodva = iodva;
         kndx1 = iobs*(6*grns->ntstar*grns->ndepth);
         kndx2 = (iobs+1)*(6*grns->ntstar*grns->ndepth);
         newCmds = tdsearch_commands_modifyCommands(ncmds, (const char **) cmds,
@@ -576,19 +580,37 @@ ERROR:;
     return ierr;
 }
 //============================================================================//
+/*!
+ * @brief Processes the Green's functions.
+ *
+ * @param[in,out] grns    On input contains the Green's functions for all
+ *                        observations, depths, and t*'s as well as the
+ *                        processing chains.
+ *                        On output contains the filtered Green's functions
+ *                        for all observations, depths, and t*'s.
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
 int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
 {
     const char *fcnm = "tdsearch_greens_process\0";
     double *data;
     struct serialCommands_struct commands;
     struct parallelCommands_struct parallelCommands;
-    int dataPtr[7], i, ierr, iobs, idep, it, kndx, nwork, ny, ns;
+    double dt, dt0, epoch, epoch0, time;
+    int dataPtr[7], i, i0, ierr, iobs, idep, it, kndx, l, npts, npts0, nq,
+        nwork, ny, ns;
+    bool lnewDt, lnewStartTime;
     const int nsignals = 6;
-/*
-    commands = (struct serialCommands_struct *)
-               calloc((size_t) (grns->ngrns/6),
-                      sizeof(struct serialCommands_struct));
-*/
+    const int nTimeVars = 12;
+    const enum sacHeader_enum timeVars[12]
+       = {SAC_FLOAT_A, SAC_FLOAT_O, 
+          SAC_FLOAT_T0, SAC_FLOAT_T1, SAC_FLOAT_T2, SAC_FLOAT_T3,
+          SAC_FLOAT_T4, SAC_FLOAT_T5, SAC_FLOAT_T6, SAC_FLOAT_T7,
+          SAC_FLOAT_T8, SAC_FLOAT_T9};
     // Loop on the observations
     for (iobs=0; iobs<grns->nobs; iobs++)
     {
@@ -596,7 +618,8 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
         {
             for (it=0; it<grns->ntstar; it++)
             {
-                memset(&parallelCommands, 0, sizeof(struct parallelCommands_struct)); 
+                memset(&parallelCommands, 0,
+                       sizeof(struct parallelCommands_struct)); 
                 memset(&commands, 0, sizeof(struct serialCommands_struct));
                 kndx = tdsearch_greens_getGreensFunctionIndex(G11_GRNS,
                                                               iobs, it, idep,
@@ -609,6 +632,35 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
                 {
                     log_errorF("%s: Error setting serial command string\n", fcnm);
                     goto ERROR;
+                }
+                // Determine some characteristics of the processing
+                sacio_getEpochalStartTime(grns->grns[kndx].header, &epoch0);
+                sacio_getFloatHeader(SAC_FLOAT_DELTA,
+                                     grns->grns[kndx].header, &dt0);
+                lnewDt = false;
+                lnewStartTime = false;
+                epoch = epoch0;
+                dt = dt0;
+                for (i=0; i<commands.ncmds; i++)
+                {
+                     if (commands.commands[i].type == CUT_COMMAND)
+                     {
+                         i0 = commands.commands[i].cut.i0;
+                         epoch = epoch + (double) i0*dt;
+                         lnewStartTime = true;
+                     }
+                     if (commands.commands[i].type == DOWNSAMPLE_COMMAND)
+                     {
+                         nq = commands.commands[i].downsample.nq;
+                         dt = dt*(double) nq;
+                         lnewDt = true;
+                     }
+                     if (commands.commands[i].type == DECIMATE_COMMAND)
+                     {
+                         nq = commands.commands[i].decimate.nqAll;
+                         dt = dt*(double) nq;
+                         lnewDt = true;
+                     }
                 }
                 dataPtr[0] = 0;
                 for (i=0; i<nsignals; i++)
@@ -661,10 +713,58 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
                                                           dataPtr, data);
                 for (i=0; i<nsignals; i++)
                 {
-                    ierr = array_copy64f_work(grns->grns[kndx+i].npts,
-                                              &data[dataPtr[i]],
-                                              grns->grns[kndx+i].data);
-
+                    sacio_getIntegerHeader(SAC_INT_NPTS,  
+                                           grns->grns[kndx+i].header, &npts0);
+                    npts = dataPtr[i+1] - dataPtr[i];
+                    // Resize event
+                    if (npts != npts0)
+                    {
+                        sacio_freeData(&grns->grns[kndx+i]);
+                        grns->grns[kndx+i].data = sacio_malloc64f(npts);
+                        grns->grns[kndx+i].npts = npts;
+                        sacio_setIntegerHeader(SAC_INT_NPTS, npts,
+                                               &grns->grns[kndx+i].header);
+                        ierr = array_copy64f_work(npts,
+                                                  &data[dataPtr[i]],
+                                                  grns->grns[kndx+i].data);
+                    }
+                    else
+                    {
+                        ierr = array_copy64f_work(npts,
+                                                  &data[dataPtr[i]],
+                                                  grns->grns[kndx+i].data);
+                    }
+                }
+                // Update the times
+                if (lnewStartTime)
+                {
+                    for (i=0; i<nsignals; i++)
+                    {
+                        // Update the picks
+                        for (l=0; l<nTimeVars; l++)
+                        {
+                            ierr = sacio_getFloatHeader(timeVars[l],
+                                              grns->grns[kndx+i].header, &time);
+                            if (ierr == 0)
+                            {
+                                time = time + epoch0; // Turn to real time
+                                time = time - epoch;  // Relative to new time
+                                sacio_setFloatHeader(timeVars[l], time,
+                                                    &grns->grns[kndx+i].header);
+                            }
+                        } // Loop on picks
+                        sacio_setEpochalStartTime(epoch,
+                                                  &grns->grns[kndx+i].header);
+                    } // Loop on signals
+                }
+                // Update the sampling period
+                if (lnewDt)
+                {
+                    for (i=0; i<nsignals; i++)
+                    {
+                        sacio_setFloatHeader(SAC_FLOAT_DELTA, dt,
+                                             &grns->grns[kndx+i].header);
+                    }
                 }
                 process_freeSerialCommands(&commands);
                 process_freeParallelCommands(&parallelCommands);

@@ -120,7 +120,8 @@ int main(int argc, char *argv[])
     //------------------------------------------------------------------------//
     printf("%s: Processing data...\n", PROGRAM_NAME);
     time_tic();
- tdsearch_data_modifyProcessingCommands(-5.0, 15.0, 0.25, &data);
+ tdsearch_data_modifyProcessingCommands(ffGrns.modelingParms.hpulse96Parms.iodva,
+                                   -5.0, 15.0, 0.25, &data);
     ierr = tdsearch_data_process(&data);
     if (ierr != 0)
     {
@@ -164,7 +165,9 @@ tdsearch_data_writeFiles("prepData", NULL, data);
     // Fix the Green's functions pre-processing commands
     printf("%s: Modifying Green's functions processing commands...\n",
            PROGRAM_NAME);
-    ierr = tdsearch_greens_modifyProcessingCommands(-5, 15, 0.25, &grns);
+    ierr = tdsearch_greens_modifyProcessingCommands(
+                 ffGrns.modelingParms.hpulse96Parms.iodva,
+                 -5, 15, 0.25, &grns);
     if (ierr != 0)
     {
         printf("%s: Failed to modify Green's pre-processing commands\n",

@@ -38,6 +38,7 @@ int tdsearch_data_writeFiles(const char *outdir,
                              const struct tdSearchData_struct data);
 int tdsearch_data_process(struct tdSearchData_struct *data);
 int tdsearch_data_modifyProcessingCommands(
+    const int iodva,
     const double cut0, const double cut1, const double targetDt,
     struct tdSearchData_struct *data);
 

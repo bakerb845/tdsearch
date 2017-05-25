@@ -686,6 +686,11 @@ ERROR:;
 /*!
  * @brief Some ad-hoc rules for fixing the data processing commands. 
  *
+ * @parma[in] iodva       Desired units that should be consistent
+ *                        with forward modeling.  
+ *                         iodva = 0 -> deconvolve to displacment.
+ *                         iodva = 1 -> deconvolve to velocity.
+ *                         iodva = 2 -> deconvolve to acceleration.
  * @param[in] cut0        Time relative to pick to begin cut (seconds).
  * @param[in] cut1        Time relative to pick to end cut (seconds).
  * @param[in] targetDt    Target sampling period (seconds).
@@ -699,6 +704,7 @@ ERROR:;
  *
  */
 int tdsearch_data_modifyProcessingCommands(
+    const int iodva,
     const double cut0, const double cut1, const double targetDt,
     struct tdSearchData_struct *data)
 {
@@ -719,7 +725,7 @@ int tdsearch_data_modifyProcessingCommands(
         options.cut1 = cut1;
         options.targetDt = targetDt;
         options.ldeconvolution = true;
-        options.iodva = 1; // TODO change me
+        options.iodva = iodva;
         cmds = (const char **) data->cmds[k].cmds;
         newCmds = tdsearch_commands_modifyCommands(ncmds, (const char **) cmds,
                                                    options,

@@ -13,6 +13,7 @@ int tdsearch_greens_setPreprocessingCommandsFromIniFile(
     const int nobs,  
     struct tdSearchGreens_struct *grns);
 int tdsearch_greens_modifyProcessingCommands(
+    const int iodva,
     const double cut0, const double cut1, const double targetDt,
     struct tdSearchGreens_struct *grns);
 int tdsearch_greens_getGreensFunctionsIndices(

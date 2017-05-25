@@ -71,7 +71,7 @@ struct tdsearchHudsonParms_struct
     struct hudson96_parms_struct
          hudson96Parms; /*!< Hudson96 modeling paramters. */
     struct hpulse96_parms_struct
-        hpulse96Parms; /*!< Hpulse96 modeling parmaeters. */
+        hpulse96Parms; /*!< Hpulse96 modeling parameters. */
 };
 
 struct tdSearchHudson_struct

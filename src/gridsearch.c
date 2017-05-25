@@ -40,15 +40,28 @@
  *
  * @result 0 indicates success.
  *
+ * @author Ben Baker, ISTI
+ *
  */
 int tdsearch_gridSearch_setDefaults(struct tdSearch_struct *tds)
 {
+    const char *fcnm = "tdsearch_gridSearch_setDefaults\0";
     int ierr;
     memset(tds, 0, sizeof(struct tdSearch_struct));
     tds->maxShiftTime = DBL_MAX;
     ierr = tdsearch_gridSearch_defineTstarGrid(NTSTAR, TSTAR0, TSTAR1, tds);
+    if (ierr != 0)
+    {
+        log_errorF("%s: Failed to set t* grid\n", fcnm);
+        return -1;
+    } 
     ierr = tdsearch_gridSearch_defineDepthGrid(NDEPTH, DEPTH0, DEPTH1, tds);
-    return 0;
+    if (ierr != 0)
+    {
+        log_errorF("%s: Failed to set depth grid\n", fcnm);
+        return -1;
+    }
+    return ierr;
 }
 //============================================================================//
 /*!
@@ -187,6 +200,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     dictionary *ini;
     int ierr, ndepth, ntstar;
     // Set the defaults
+    ierr = 0;
     tdsearch_gridSearch_setDefaults(tds);
     // Verify the file exists
     if (!os_path_isfile(iniFile))
@@ -196,7 +210,6 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     }   
     ini = iniparser_load(iniFile);
     // Unpack the parameter file
-    ierr = 1;
     tds->maxShiftTime
       = iniparser_getdouble(ini, "tdSearch:gridSearch:maxShiftTime\0", DBL_MAX);
     if (tds->maxShiftTime < DBL_MAX)
@@ -246,12 +259,22 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     ierr = tdsearch_gridSearch_defineTstarGrid(ntstar,
                                                tstar0, tstar1,
                                                tds);
+    if (ierr != 0)
+    {
+        log_errorF("%s: Error defining t* grid\n", fcnm);
+        goto ERROR;
+    }
     ierr = tdsearch_gridSearch_defineDepthGrid(ndepth,
                                                depth0, depth1,
                                                tds);
+    if (ierr != 0)
+    {
+        log_errorF("%s: Error defining depth grid\n", fcnm);
+        goto ERROR;      
+    }
 ERROR:;
     iniparser_freedict(ini);
-    return 0;
+    return ierr;
 }
 //============================================================================//
 /*!
@@ -551,9 +574,9 @@ int tdSearch_gridSearch_setMomentTensorFromEvent(
 int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds)
 {
     const char *fcnm = "tdSearch_gridSearch_performGridSearch\0";
-    double *u, *ud, dnorm, unorm, xc;
-    int id, idelay, idt, indx, iopt, it, jndx, l1, l2, lxc, maxlags,
-        ndepth, ndt, nlag, npts, npgrns, nrows, ntstar;
+    double *u, *ud, dnorm, unorm;
+    int id, idt, indx, iopt, it, jndx, l1, l2, lxc, maxlags,
+        ndepth, ndt, nlag, npgrns, nrows, ntstar;
     const int ncols = 6;
     tds->itopt =-1;
     tds->idopt =-1;
@@ -584,7 +607,6 @@ int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds)
     // Set output space
     tds->xcorr = memory_calloc64f(ndt);
     tds->lags = memory_calloc32i(ndt);
-    npts = tds->npts;
     // Compute the cross-correlation
     nrows = tds->grnsXCMatrixPtr[ndt];
     ud = memory_calloc64f(nrows);
@@ -784,6 +806,11 @@ int tdSearch_gridSearch_makeSACSynthetic(
                              &synth->header);
     // Fix the timing
     ierr = sacio_getEpochalStartTime(synth->header, &epoch);
+    if (ierr != 0)
+    {
+        log_errorF("%s: Failed to get start time\n", fcnm);
+        return -1;
+    }
     epoch = epoch + (double) tds.lags[idt]*tds.dt;
     sacio_setEpochalStartTime(epoch, &synth->header);
     return 0;

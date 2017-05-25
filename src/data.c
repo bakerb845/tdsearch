@@ -38,7 +38,7 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
          varname[128], cline[2*PATH_MAX];
     dictionary *ini;
     size_t lenos;
-    int ierr, item, k, ncmds, ncmdsWork, nitems, nfiles, nlines, nobs;
+    int ierr, item, k, ncmds, ncmdsWork, nitems, nfiles, nobs;
     bool luseDataList, luseProcessingList;
     nobs = 0;
     nfiles = 0;
@@ -297,12 +297,19 @@ int tdsearch_data_attachCommandsToObservation(const int iobs,
  */
 int tdsearch_data_free(struct tdSearchData_struct *data)
 {
+    const char *fcnm = "tdsearch_data_free\0";
     int i, ierr, k;
+    ierr = 0;
     if (data->maxobs > 0 && data->obs != NULL)
     {
         for (k=0; k<data->nobs; k++)
         {
-            ierr = sacio_free(&data->obs[k]);
+            ierr += sacio_free(&data->obs[k]);
+            if (ierr != 0)
+            {
+                log_errorF("%s: Error freeing SAC data struct %d\n",
+                           fcnm, k+1);
+            }
         }
         free(data->obs);
     }
@@ -326,7 +333,7 @@ int tdsearch_data_free(struct tdSearchData_struct *data)
     }
     memory_free8l(&data->lskip);
     memset(data, 0, sizeof(struct tdSearchData_struct));
-    return 0;
+    return ierr;
 }
 //============================================================================//
 /*!
@@ -698,14 +705,8 @@ int tdsearch_data_modifyProcessingCommands(
     const char *fcnm = "tdsearch_data_modifyProcessingCommands\0";
     struct tdSearchModifyCommands_struct options;
     const char **cmds;
-    char **newCmds, **cmdSplit, cwork[MAX_CMD_LEN],
-         c64[64], cmd1[64], cmd2[64];
-    double dt0, epoch, ptime, t0, t1;
-    bool oneCorner;
-    size_t lenos;
-    int i, ierr, k, l, ncmds, nsplit;
-    const bool laaFilter = true; // anti-alias filter in decimation
-    const bool lfixPhase = true; // don't let anti-alias filter mess up picks
+    char **newCmds;
+    int i, ierr, k, ncmds;
     //------------------------------------------------------------------------//
     ierr = 0;
     memset(&options, 0, sizeof(struct tdSearchModifyCommands_struct));
@@ -723,184 +724,12 @@ int tdsearch_data_modifyProcessingCommands(
         newCmds = tdsearch_commands_modifyCommands(ncmds, (const char **) cmds,
                                                    options,
                                                    data->obs[k], &ierr);
-        /*
-        newCmds = NULL;
-        ncmds =  data->cmds[k].ncmds; 
-        if (ncmds < 1){continue;} // Nothing to do
-        cmds = data->cmds[k].cmds;
-        // Modify the problematic commands
-        ierr = sacio_getFloatHeader(SAC_FLOAT_DELTA, data->obs[k].header, &dt0);
-        newCmds = (char **) calloc((size_t) ncmds, sizeof(char *));
-        for (i=0; i<ncmds; i++)
+        if (ierr != 0)
         {
-            newCmds[i] = (char *) calloc(MAX_CMD_LEN, sizeof(char));
-            lenos = strlen(cmds[i]);
-            memset(cwork, 0, MAX_CMD_LEN*sizeof(char));
-            memset(cmd1, 0, 64*sizeof(char));
-            memset(cmd2, 0, 64*sizeof(char));
-            strncpy(cmd1, cmds[i], MIN(3, lenos));
-            strncpy(cmd2, cmds[i], MIN(3, lenos));
-            if (strcasecmp(cmds[i], "transfer\0") == 0)
-            {
-                log_errorF("%s: transfer command not yet done\n", fcnm);
-                ierr = 1;
-                goto ERROR;
-            }
-            else if (strcasecmp(cmd1, "lowpass\0") == 0 ||
-                     strcasecmp(cmd1, "highpas\0") == 0)
-            {
-                cmdSplit = string_rsplit(NULL, cmds[i], &nsplit);
-                strcpy(cwork, cmdSplit[0]);
-                strcat(cwork, " ");
-                for (l=1; l<nsplit; l++)
-                {
-                    if (strcasecmp(cmdSplit[l], "corner\0") == 0)
-                    {
-                        memset(c64, 0, 64*sizeof(char));
-                        sprintf(c64, "dt %f corner %s", dt0, cmdSplit[l+1]);
-                        strcat(cwork, c64);
-                        l = l + 1;
-                    }
-                    else
-                    {
-                        strcat(cwork, cmdSplit[l]);
-                    }
-                    if (l < nsplit - 1){strcat(cwork, " ");}
-                 }
-                 for (l=0; l<nsplit; l++){free(cmdSplit[l]);}
-                 free(cmdSplit);
-            }
-            else if (strcasecmp(cmd1, "bandpas\0") == 0 ||
-                     strcasecmp(cmd1, "bandrej\0") == 0)
-            {
-                cmdSplit = string_rsplit(NULL, cmds[i], &nsplit);
-                strcpy(cwork, cmdSplit[0]);
-                strcat(cwork, " ");
-                for (l=1; l<nsplit; l++)
-                {
-                    if (strcasecmp(cmdSplit[l], "corners\0") == 0)
-                    {
-                        memset(c64, 0, 64*sizeof(char));
-                        sprintf(c64, "dt %f corners %s %s",
-                                dt0, cmdSplit[l+1], cmdSplit[l+2]);
-                        strcat(cwork, c64);
-                        l = l + 2;
-                    }
-                    else
-                    {
-                        strcat(cwork, cmdSplit[l]);
-                    }
-                    if (l < nsplit - 1){strcat(cwork, " ");}
-                }
-                for (l=0; l<nsplit; l++){free(cmdSplit[l]);}
-                free(cmdSplit);
-            }
-            else if (strcasecmp(cmd2, "sos\0") == 0)
-            {
-                oneCorner = false;
-                cmdSplit = string_rsplit(NULL, cmds[i], &nsplit);
-                strcpy(cwork, cmdSplit[0]);
-                strcat(cwork, " ");
-                for (l=1; l<nsplit; l++)
-                {
-                    if (strcasecmp(cmdSplit[l], "lowpass\0") == 0 ||
-                        strcasecmp(cmdSplit[l], "highpas\0") == 0)
-                    {
-                        oneCorner = true;
-                    }
-                    if (strcasecmp(cmdSplit[l], "bandpas\0") == 0 ||
-                        strcasecmp(cmdSplit[l], "bandrej\0") == 0)
-                    {
-                        oneCorner = false;
-                    }
-                }
-                for (l=1; l<nsplit; l++)
-                {
-                    if (strcasecmp(cmdSplit[l], "corner\0") == 0 ||
-                        strcasecmp(cmdSplit[l], "corners\0") == 0)
-                    {
-                        if (oneCorner)
-                        {
-                            memset(c64, 0, 64*sizeof(char));
-                            sprintf(c64, "dt %f corner %s", dt0, cmdSplit[l+1]);
-                            strcat(cwork, c64);
-                            l = l + 1;
-                        }
-                        else
-                        {
-                            memset(c64, 0, 64*sizeof(char));
-                            sprintf(c64, "dt %f corners %s %s",
-                                    dt0, cmdSplit[l+1], cmdSplit[l+2]);
-                            strcat(cwork, c64);
-                            l = l + 2;
-                        }
-                    }
-                    else
-                    {
-                        strcat(cwork, cmdSplit[l]);
-                    }   
-                    if (l < nsplit - 1){strcat(cwork, " ");}
-                }
-                for (l=0; l<nsplit; l++){free(cmdSplit[l]);}
-                free(cmdSplit);
-            }
-            else if (strcasecmp(cmds[i], "cut\0") == 0)
-            {
-                ierr = sacio_getEpochalStartTime(data->obs[k].header, &epoch);
-                if (ierr != 0)
-                {
-                    log_errorF("%s: Failed to get start time\n", fcnm);
-                    goto ERROR;
-                }
-                ierr = sacio_getFloatHeader(SAC_FLOAT_A, data->obs[k].header,
-                                            &ptime);
-                if (ierr != 0)
-                {
-                    log_errorF("%s: Failed to get pick time\n", fcnm);
-                    goto ERROR;
-                }
-                t0 = epoch + ptime + cut0; // superfluous; epoch will be removed
-                t1 = epoch + ptime + cut1; // superfluous; epoch will be removed
-                ierr = cut_cutEpochalTimesToString(dt0, epoch, t0, t1, cwork); 
-                if (ierr != 0)
-                {
-                    log_errorF("%s: Failed to modify cut command\n", fcnm);
-                    goto ERROR;
-                }
-            }
-            else if (strcasecmp(cmds[i], "decimate\0") == 0)
-            {
-                ierr = decimate_createDesignCommandsWithDT(dt0, targetDt,
-                                                           laaFilter, lfixPhase,
-                                                           cwork);
-                if (ierr != 0)
-                {
-                    log_errorF("%s: Couldn't modify the decimate command\n",
-                               fcnm);
-                    goto ERROR; 
-                }
-                dt0 = targetDt;
-            }
-            else if (strcasecmp(cmds[i], "downsample\0") == 0)
-            {
-                ierr = downsample_downsampleTargetSamplingPeriodToString(
-                           dt0, targetDt, cwork);
-                if (ierr != 0)
-                {
-                    log_errorF("%s: Couldn't modify downsample command\n",
-                               fcnm);
-                    goto ERROR; 
-                }
-                dt0 = targetDt;
-            }
-            else
-            {
-                strcpy(cwork, cmds[i]);
-            }
-            // Update the command
-            strcpy(newCmds[i], cwork); 
-        } // Loop on commands
-        */
+            log_errorF("%s: Error modifying commands for obs: %d\n",
+                       fcnm, k+1); 
+            break;
+        }
         // Reset the command structure and free newCmds
         for (i=0; i<ncmds; i++)
         { 
@@ -911,7 +740,6 @@ int tdsearch_data_modifyProcessingCommands(
         }
         free(newCmds);
     }
-ERROR:;
     return ierr;
 }
 //============================================================================//
@@ -986,7 +814,7 @@ int tdsearch_data_process(struct tdSearchData_struct *data)
 {
     const char *fcnm = "tdsearch_data_process\0";
     struct serialCommands_struct *commands;
-    double dt, dt0, dtSave, epoch, epoch0, time, *ycopy;
+    double dt, dt0, epoch, epoch0, time, *ycopy;
     int *nyAll, i, i0, ierr, k, npts0, nq, nwork;
     bool lnewDt, lnewStartTime;
     const int nTimeVars = 12;

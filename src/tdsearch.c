@@ -21,8 +21,9 @@ int main(int argc, char *argv[])
     struct tdSearchGreens_struct grns;
     struct sacData_struct synth;
     char iniFile[PATH_MAX], synthName[PATH_MAX], heatMap[PATH_MAX];
-    int ierr, iobs, provided;
+    int ierr, iobs;
     // Fire up MPI 
+    // int provided;
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
     // Initialize
     memset(iniFile, 0, PATH_MAX*sizeof(char));

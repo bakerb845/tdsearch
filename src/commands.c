@@ -19,7 +19,7 @@ char **tdsearch_commands_modifyCommands(
     char **newCmds, **cmdSplit, cwork[MAX_CMD_LEN], c64[64], cmd1[64], cmd2[64];
     double *freqs, cut0, cut1, dt0, epoch, ptime, t0, t1, targetDt;
     struct signalZPK_struct zpkFrom, zpkTo;
-    int i, iodva, k, l, npolesAdd, nsplit, nzerosAdd;
+    int i, iodva, l, npolesAdd, nsplit, nzerosAdd;
     size_t lenos;
     bool ldeconvolution, oneCorner;
     const bool lisDigital = false; // SAC-PZ's aren't digital

@@ -21,6 +21,24 @@
 static int getPrimaryArrival(const struct sacHeader_struct hdr,
                              double *time, char phaseName[8]);
 
+/*!
+ * @brief Reads the generic Green's functions pre-processing files from
+ *        the ini file.
+ *
+ * @param[in] iniFile    Name of ini file.
+ * @param[in] nobs       Number of observations.
+ *
+ * @param[in,out] grns   On input contains the number of observations.
+ *                       On exit contains the generic Green's functions
+ *                       processing commands for the observations.
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ * @TODO Add an option to read a processing list file.
+ *
+ */
 int tdsearch_greens_setPreprocessingCommandsFromIniFile(
     const char *iniFile,
     const int nobs,  
@@ -33,7 +51,7 @@ int tdsearch_greens_setPreprocessingCommandsFromIniFile(
     char varname[128];
     size_t lenos;
     int ierr, k, ncmds, ncmdsWork;
-
+    ierr = 0;
     grns->nobs = nobs;
     if (grns->nobs < 1){return 0;}
     if (!os_path_isfile(iniFile))
@@ -80,9 +98,29 @@ int tdsearch_greens_setPreprocessingCommandsFromIniFile(
         }
     }
     iniparser_freedict(ini);
-    return 0;
+    return ierr;
 }
 //============================================================================//
+/*!
+ * @brief Attaches the Green's functions processing commands to the Green's
+ *        structure.
+ * 
+ * @param[in] iobs      Observation number to attach commands to.
+ * @param[in] ncmds     Number of commands.
+ * @param[in] cmds      Pre-processing commands for the Green's functions
+ *                      corresponding to the iobs'th observation [ncmds].
+ *
+ * @param[in,out] grns  On input has the Green's functions (depths and t*'s)
+ *                      corresponding to the observations.
+ *                      On output contains the pre-processing commands
+ *                      for Green's functions corresponding to the
+ *                      observations.
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
 int tdsearch_greens_attachCommandsToGreens(const int iobs, const int ncmds,
                                            const char **cmds,
                                            struct tdSearchGreens_struct *grns)
@@ -166,6 +204,26 @@ int tdsearch_greens_getGreensFunctionIndex(
     return indx;
 }
 //============================================================================//
+/*!
+ * @brief Convenience function for extracting the: 
+ *        \$ \{ G_{xx}, G_{yy}, G_{zz}, G_{xy}, G_{xz}, G_{yz} \} \$
+ *        Green's functions indices for the observation, t*, and depth.
+ *
+ * @param[in] iobs      Observation number.
+ * @param[in] itstar    t* index.  This is C numbered.
+ * @param[in] idepth    Depth index.  This is C numbered.
+ * @param[in] grns      Contains the Green's functions.
+ * @param[out] indices  Contains the Green's functions indices defining
+ *                      the indices that return the:
+ *                       \$ \{ G_{xx}, G_{yy}, G_{zz}, 
+ *                             G_{xy}, G_{xz}, G_{yz} \} \$
+ *                      for this observation, t*, and depth. 
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
 int tdsearch_greens_getGreensFunctionsIndices(
     const int iobs, const int itstar, const int idepth,
     const struct tdSearchGreens_struct grns, int indices[6])
@@ -268,12 +326,11 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                      struct tdSearchGreens_struct *grns)
 {
     const char *fcnm = "tdsearch_greens_ffGreenToGreens\0";
-    char knetwk[8], kstnm[8], kcmpnm[8], khole[8], phaseName[8], phaseNameGrns[8];
-    double *G, az, baz, cmpaz, cmpinc, cmpincSEED, epoch, epochNew,
+    char knetwk[8], kstnm[8], kcmpnm[8], khole[8], phaseName[8],
+         phaseNameGrns[8];
+    double az, baz, cmpaz, cmpinc, cmpincSEED, epoch, epochNew,
            evla, evlo, o, pickTime, pickTimeGrns, stel, stla, stlo;
     int i, icomp, id, ierr, idx, indx, iobs, it, kndx, npts;
-    size_t nalloc;
-    bool dop;
     const char *kcmpnms[6] = {"GXX\0", "GYY\0", "GZZ\0",
                               "GXY\0", "GXZ\0", "GYZ\0"};
     const double xmom = 1.0;     // no confusing `relative' magnitudes 
@@ -463,8 +520,7 @@ int tdsearch_greens_modifyProcessingCommands(
     const char *fcnm = "tdsearch_greens_modifyProcessingCommands\0";
     struct tdSearchModifyCommands_struct options;
     const char **cmds;
-    char **newCmds, **cmdSplit, cwork[MAX_CMD_LEN];
-    double dt0, epoch, ptime, t0, t1;
+    char **newCmds;
     size_t lenos;
     int i, ierr, iobs, k, kndx1, kndx2, ncmds;
     ierr = 0;
@@ -526,7 +582,7 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
     double *data;
     struct serialCommands_struct commands;
     struct parallelCommands_struct parallelCommands;
-    int dataPtr[7], i, ierr, iobs, idep, it, jndx, kndx, nwork, ny, ns;
+    int dataPtr[7], i, ierr, iobs, idep, it, kndx, nwork, ny, ns;
     const int nsignals = 6;
 /*
     commands = (struct serialCommands_struct *)
@@ -545,11 +601,10 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
                 kndx = tdsearch_greens_getGreensFunctionIndex(G11_GRNS,
                                                               iobs, it, idep,
                                                               *grns);
-                jndx = kndx/6;
                 ierr = process_stringsToSerialCommandsOptions(
                                       grns->cmdsGrns[kndx].ncmds,
                                       (const char **) grns->cmdsGrns[kndx].cmds,
-                                      &commands); //[jndx]);
+                                      &commands);
                 if (ierr != 0)
                 {
                     log_errorF("%s: Error setting serial command string\n", fcnm);

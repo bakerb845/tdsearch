@@ -394,11 +394,12 @@ int tdsearch_hudson_observationDepthTstarToIndex(
     return indx;
 }
 //============================================================================//
+/*
 int tdsearch_hudson_ffGreenToGreens(const struct tdSearchData_struct data,
                                     struct tdSearchHudson_struct *grns )
 {
     const char *fcnm = "tdsearch_hudson_ffGreenToGreens\0";
-    double *G, az, baz, cmpaz, cmpinc;
+    double az, baz, cmpaz, cmpinc;
     int ierr, iobs;
     const double xmom = 1.0;     // no confusing `relative' magnitudes 
     const double xcps = 1.e-20;  // convert dyne-cm mt to output cm
@@ -428,6 +429,7 @@ int tdsearch_hudson_ffGreenToGreens(const struct tdSearchData_struct data,
     }
     return 0;
 }
+*/
 //============================================================================//
 /*!
  * @brief Computes the fundamental fault Green's functions for the teleseismic
@@ -445,8 +447,8 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
     struct vmodel_struct *recmod, srcmod, telmod;
     char phaseName[8];
     double *lats, *lons, *dptr, cmpaz, cmpinc, dt, evla, evlo, gcarc, offset0,
-           pickTime, stla, stlo;
-    int i, idep, idist, ierr, ierrAll, ierr1, ierr2, indx, iobs, iobs0, ip, it,
+           pickTime;
+    int i, idep, ierr, ierrAll, ierr1, ierr2, indx, iobs, iobs0, ip, it,
         kndx, nloop, npts;
     bool lfound, lsh;
     const enum sacHeader_enum pickVars[11]

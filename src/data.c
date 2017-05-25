@@ -21,6 +21,10 @@
  *
  * @param[in] iniFile     Name of ini file.
  *
+ * @param[out] targetDt   Target sampling period (s) for all data in inversion.
+ * @param[out] cutStart   Default start window time (s) relative to first
+ *                        arrival.
+ * @param[out] cutEnd     Default end window time (s) relative to first arrival.
  * @param[out] data       On successful exit contains the input data.
  *
  * @result 0 indicates success.
@@ -29,6 +33,8 @@
  *
  */
 int tdsearch_data_initializeFromFile(const char *iniFile,
+                                     double *targetDt,
+                                     double *cutStart, double *cutEnd,
                                      struct tdSearchData_struct *data)
 {
     const char *fcnm = "tdsearch_data_initializeFromFile\0";
@@ -45,6 +51,9 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
     ierr = 0;
     sacFiles = NULL;
     sacpzFiles = NULL;
+    *cutStart =-2.0;
+    *cutEnd = 3.0;
+    *targetDt = 0.1;
     memset(data, 0, sizeof(struct tdSearchData_struct));
     if (!os_path_isfile(iniFile))
     {
@@ -161,6 +170,22 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
     {
         log_errorF("%s: Error reading data files\n", fcnm);
         ierr = 1;
+        goto ERROR;
+    }
+    // Read some supplementary iformation to help the processing commands
+    *cutStart = iniparser_getdouble(ini, "tdSearch:data:cutStart\0", -2.0);
+    *cutEnd   = iniparser_getdouble(ini, "tdSearch:data:cutEnd\0", 3.0);
+    if (*cutEnd <= *cutStart)
+    {
+        log_errorF("%s: Error cutStart: %f must be less than cutEnd: %f\n",
+                   fcnm, *cutStart, *cutEnd);
+        goto ERROR;
+    }
+    *targetDt = iniparser_getdouble(ini, "tdSearch:data:targetDt\0", 0.1);
+    if (*targetDt <= 0.0)
+    {
+        log_errorF("%s: Error targetDt %f must be positive\n",
+                   fcnm, *targetDt);
         goto ERROR;
     }
     // Read the processing commands

@@ -8,6 +8,8 @@ extern "C"
 #endif
 int tdsearch_data_free(struct tdSearchData_struct *data);
 int tdsearch_data_initializeFromFile(const char *iniFile,
+                                     double *targetDt,
+                                     double *cutStart, double *cutEnd,
                                      struct tdSearchData_struct *data);
 int tdsearch_data_attachCommandsToObservation(const int iobs,
                                               const int ncmds,

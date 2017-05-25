@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
     struct tdSearchHudson_struct ffGrns;
     struct tdSearchGreens_struct grns;
     struct sacData_struct synth;
+    double cutEnd, cutStart, targetDt;
     char iniFile[PATH_MAX], synthName[PATH_MAX], heatMap[PATH_MAX];
     int ierr, iobs;
     // Fire up MPI 
@@ -51,7 +52,9 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
     // Initialize data to process from ini file
-    ierr = tdsearch_data_initializeFromFile(iniFile, &data);
+    ierr = tdsearch_data_initializeFromFile(iniFile,
+                                            &targetDt, &cutStart, &cutEnd,
+                                            &data);
     if (ierr != 0)
     {
         printf("%s: Failed to read the data\n", PROGRAM_NAME);
@@ -121,7 +124,7 @@ int main(int argc, char *argv[])
     printf("%s: Processing data...\n", PROGRAM_NAME);
     time_tic();
  tdsearch_data_modifyProcessingCommands(ffGrns.modelingParms.hpulse96Parms.iodva,
-                                   -5.0, 15.0, 0.25, &data);
+                                        cutStart, cutEnd, targetDt, &data);
     ierr = tdsearch_data_process(&data);
     if (ierr != 0)
     {
@@ -167,7 +170,7 @@ tdsearch_data_writeFiles("prepData", NULL, data);
            PROGRAM_NAME);
     ierr = tdsearch_greens_modifyProcessingCommands(
                  ffGrns.modelingParms.hpulse96Parms.iodva,
-                 -5, 15, 0.25, &grns);
+                 cutStart, cutEnd, targetDt, &grns);
     if (ierr != 0)
     {
         printf("%s: Failed to modify Green's pre-processing commands\n",

@@ -14,7 +14,7 @@ static int grd2ijk(const int igrd,
                    const int n1, const int n2, const int n3, 
                    int *i, int *j, int *k);
 /*!
- * @brief Reads the ini file for Computer Programs in Seismolgoy hudson96
+ * @brief Reads the ini file for Computer Programs in Seismology hudson96
  *        forward modeling variables.
  *
  * @param[in] iniFile    Name of ini file.

@@ -63,7 +63,7 @@ int tdsearch_greens_setPreprocessingCommandsFromIniFile(
     ini = iniparser_load(iniFile);
     ncmds = iniparser_getint(ini, "tdSearch:greens:nCommands\0", 0);
     grns->cmds = (struct tdSearchDataProcessingCommands_struct *)
-                 calloc((size_t) ncmds,
+                 calloc((size_t) nobs, //ncmds,
                         sizeof(struct tdSearchDataProcessingCommands_struct));
     //if (!luseProcessingList)
     {
@@ -151,8 +151,10 @@ int tdsearch_greens_attachCommandsToGreens(const int iobs, const int ncmds,
     if (ncmds == 0){return 0;}
     grns->cmds[iobs].ncmds = ncmds;
     grns->cmds[iobs].cmds = (char **) calloc((size_t) ncmds, sizeof(char *));
+    if (cmds == NULL){printf("problem 1\n");}
     for (i=0; i<ncmds; i++)
-    {    
+    {
+        if (cmds[i] == NULL){printf("problem 2\n");}
         lenos = strlen(cmds[i]);
         grns->cmds[iobs].cmds[i] = (char *) calloc(lenos+1, sizeof(char));
         strcpy(grns->cmds[iobs].cmds[i], cmds[i]);
@@ -276,12 +278,15 @@ int tdsearch_greens_free(struct tdSearchGreens_struct *grns)
                     if (grns->cmds[k].cmds[i] != NULL)
                     {
                         free(grns->cmds[k].cmds[i]);
+                        grns->cmds[k].cmds[i] = NULL;
                     }
                 }
                 free(grns->cmds[k].cmds);
+                grns->cmds[k].cmds = NULL;
             }
         }
         free(grns->cmds);
+        grns->cmds = NULL;
     }
     if (grns->cmdsGrns != NULL)
     {
@@ -294,12 +299,15 @@ int tdsearch_greens_free(struct tdSearchGreens_struct *grns)
                     if (grns->cmdsGrns[k].cmds != NULL)
                     {
                         free(grns->cmdsGrns[k].cmds[i]);
+                        grns->cmdsGrns[k].cmds[i] = NULL;
                     }
                 }
                 free(grns->cmdsGrns[k].cmds);
+                grns->cmdsGrns[k].cmds = NULL;
              }
         } 
         free(grns->cmdsGrns);
+        grns->cmdsGrns = NULL;
     }
     memset(grns, 0, sizeof(struct tdSearchGreens_struct));
     return 0;

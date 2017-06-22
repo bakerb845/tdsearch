@@ -7,6 +7,16 @@ extern "C"
 {
 #endif
 int tdsearch_data_free(struct tdSearchData_struct *data);
+int tdsearch_data_getPickStrategy(const char *iniFile,
+                                  bool *lsetNewPicks,
+                                  bool *lusePickFile,
+                                  char pickFile[PATH_MAX]);
+int tdsearch_data_setPicks(const char *ttimesDir,
+                           const char *model,
+                           const bool lsetNewPicks,
+                           const bool lusePickFile,
+                           const char *pickFile,
+                           struct tdSearchData_struct *data);
 int tdsearch_data_getDefaultDTAndWindowFromIniFile(const char *iniFile,
                                                    double *targetDt,
                                                    double *cutStart,

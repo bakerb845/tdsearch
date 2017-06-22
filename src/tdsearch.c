@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <mpi.h>
 #include "tdsearch.h"
+#include "prepmt/prepmt_pickFile.h"
 #include "iscl/iscl/iscl.h"
 #include "iscl/time/time.h"
 
@@ -21,8 +22,10 @@ int main(int argc, char *argv[])
     struct tdSearchGreens_struct grns;
     struct sacData_struct synth;
     double cutEnd, cutStart, targetDt;
-    char iniFile[PATH_MAX], synthName[PATH_MAX], heatMap[PATH_MAX];
+    char iniFile[PATH_MAX], synthName[PATH_MAX], heatMap[PATH_MAX],
+         pickFile[PATH_MAX];
     int ierr, iobs;
+    bool lsetNewPicks, lusePickFile;
     // Fire up MPI 
     // int provided;
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
@@ -68,6 +71,9 @@ int main(int argc, char *argv[])
         printf("%s: Failed to read the processing defaults\n", PROGRAM_NAME);
         return EXIT_FAILURE;
     }
+    ierr = tdsearch_data_getPickStrategy(iniFile,
+                                         &lsetNewPicks, &lusePickFile,
+                                         pickFile);
     // Initialize the forward modeling parameters for hudson and the
     // source time function to be used in hpulse
     ierr =  tdsearch_hudson_initializeParametersFromIniFile(iniFile, &ffGrns);
@@ -104,13 +110,12 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
     // Set the theoretical pick times on KA and A
-    ierr = tdsearch_data_setPPickTimeFromTheoreticalTime(NULL, "ak135",
-                                                         SAC_FLOAT_A,
-                                                         SAC_CHAR_KA,
-                                                         &data);
+    ierr = tdsearch_data_setPicks(NULL, "ak135",
+                                  lsetNewPicks, lusePickFile, pickFile,
+                                  &data);
     if (ierr != 0)
     {
-        printf("%s: Failed to set theoretical pick times\n", PROGRAM_NAME);
+        printf("%s: Error setting picks\n", PROGRAM_NAME);
         return EXIT_FAILURE;
     }
     // Set the forward modeling grid on ffGrns

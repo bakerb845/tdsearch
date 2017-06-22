@@ -3,6 +3,7 @@
 #include <string.h>
 #include <limits.h>
 #include <iniparser.h>
+#include "prepmt/prepmt_pickFile.h"
 #include "tdsearch_data.h"
 #include "tdsearch_commands.h"
 #include "ispl/process.h"
@@ -15,6 +16,63 @@
 #include "iscl/os/os.h"
 #include "iscl/string/string.h"
 
+/*!
+ * @brief Gets the data picking strategy.
+ *
+ * @param[in] iniFile        Name of initialization file
+ *
+ * @param[out] lsetNewPicks  If true then tdsearch will set new picks.
+ *                           Otherwise, the user must set A on the SAC headers
+ *                           prior to calling tdsearch.
+ * @param[out] lusePickFile  If true then read the picks for a NonLinLoc
+ *                           format pick file.
+ * @param[out] pickFile      Name of NonLinLoc pick file.
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
+int tdsearch_data_getPickStrategy(const char *iniFile,
+                                  bool *lsetNewPicks,
+                                  bool *lusePickFile,
+                                  char pickFile[PATH_MAX])
+{
+    const char *fcnm = "tdsearch_data_getPickStrategy\0";
+    const char *s;
+    dictionary *ini;
+    *lsetNewPicks = true;
+    *lusePickFile = false;
+    memset(pickFile, 0, PATH_MAX*sizeof(char));
+    if (!os_path_isfile(iniFile))
+    {
+        log_errorF("%s: Error ini file %s doesn't exist\n", fcnm, iniFile);
+        return -1;
+    } 
+    ini = iniparser_load(iniFile);
+    *lsetNewPicks = iniparser_getboolean(ini, "tdSearch:data:lsetNewPicks\0",
+                                         true);
+    if (*lsetNewPicks){goto DONE;}
+    *lusePickFile = iniparser_getboolean(ini, "tdSearch:data:lusePickFile\0",
+                                         false);
+    if (*lusePickFile)
+    {
+        s = iniparser_getstring(ini, "tdSearch:data:pickFile\0", NULL);
+        if (!os_path_isfile(s))
+        {
+            log_errorF("%s: Pick file %s does not exist\n", fcnm, s);
+            *lusePickFile = false;
+        }
+        else
+        {
+            strcpy(pickFile, s);
+        } 
+    }
+DONE:;
+    iniparser_freedict(ini);
+    return 0;
+}
+                                  
 /*!
  * @brief Reads the default sampling period and window information for the
  *        estimation.
@@ -274,6 +332,82 @@ ERROR:;
     }
     iniparser_freedict(ini);
     return ierr;
+}
+//============================================================================//
+/*!
+ * @brief Sets the picks on the data.
+ *
+ * @param[in] ttimesDir     ttimes tables directory.  This is only important
+ *                          if setting new picks from theoretical arrivals.
+ * @param[in] model         ttime model (ak135 or iasp91).  This is only
+ *                          important if setting new picks from theoretical
+ *                          arrivals.
+ * @param[in] lsetNewPicks  If true then this function will update picks.
+ *                          Otherwise, it will simply verify the first
+ *                          arrivals are set in the header.
+ * @param[in] pickFile      If setting picks from file; then this is the
+ *                          NonLinLoc format pick file.
+ * @param[in,out] data      On input holds the data (and potentially picks).
+ *                          On output this definitely holds the primary
+ *                          arrivals in the SAC A and KA header variables
+ *                          otherwise an error has occurred.
+ *
+ * @result 0 indicates success.
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
+int tdsearch_data_setPicks(const char *ttimesDir,
+                           const char *model,
+                           const bool lsetNewPicks,
+                           const bool lusePickFile,
+                           const char *pickFile,
+                           struct tdSearchData_struct *data)
+{
+    const char *fcnm = "tdsearch_data_setPicks\0";
+    double ptime;
+    int ierr, iobs;
+    // Set the theoretical pick times on KA and A
+    if (lsetNewPicks)
+    {
+        if (!lusePickFile)
+        {
+            ierr = tdsearch_data_setPPickTimeFromTheoreticalTime(ttimesDir, //NULL,
+                                                                 model,// "ak135",
+                                                                 SAC_FLOAT_A,
+                                                                 SAC_CHAR_KA,
+                                                                 data);
+            if (ierr != 0)
+            {
+                printf("%s: Failed to set theoretical pick times\n",
+                       fcnm);
+                return EXIT_FAILURE;
+            }
+        }
+        else
+        {
+            ierr = prepmt_pickFile_nonLinLoc2sac(pickFile, data->nobs,
+                                                 data->obs);
+            if (ierr != 0)
+            {
+                printf("%s: Failed to set picks from file\n", fcnm);
+                return EXIT_FAILURE;
+            }
+        }   
+    }
+    // Verify the arrivals are filled out
+    for (iobs=0; iobs<data->nobs; iobs++)
+    {
+        ierr = sacio_getFloatHeader(SAC_FLOAT_A,
+                                    data->obs[iobs].header, &ptime);
+        if (ierr != 0)
+        {
+            printf("%s: Observation %d requires a pick!\n",
+                   fcnm, iobs+1);
+            return EXIT_FAILURE;
+        }
+    }
+    return 0;
 }
 //============================================================================//
 /*!

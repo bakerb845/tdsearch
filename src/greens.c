@@ -337,7 +337,7 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
     const char *fcnm = "tdsearch_greens_ffGreenToGreens\0";
     char knetwk[8], kstnm[8], kcmpnm[8], khole[8], phaseName[8],
          phaseNameGrns[8];
-    double az, baz, cmpaz, cmpinc, cmpincSEED, epoch, epochNew,
+    double az, baz, cmpaz, cmpinc, cmpincSEED, dt0, epoch, epochNew,
            evla, evlo, o, pick, pickTime, pickTimeGrns, stel, stla, stlo;
     int i, icomp, id, ierr, idx, indx, iobs, it, kndx, l, npts;
     const char *kcmpnms[6] = {"GXX\0", "GYY\0", "GZZ\0",
@@ -386,14 +386,17 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                      data.obs[iobs].header, &stla);
         ierr += sacio_getFloatHeader(SAC_FLOAT_STLO,
                                      data.obs[iobs].header, &stlo);
-        ierr += sacio_getFloatHeader(SAC_FLOAT_STEL,
-                                     data.obs[iobs].header, &stel);
+        ierr += sacio_getFloatHeader(SAC_FLOAT_DELTA,
+                                     data.obs[iobs].header, &dt0);
         ierr += sacio_getCharacterHeader(SAC_CHAR_KNETWK,
                                          data.obs[iobs].header, knetwk);
         ierr += sacio_getCharacterHeader(SAC_CHAR_KSTNM,
                                          data.obs[iobs].header, kstnm);
         ierr += sacio_getCharacterHeader(SAC_CHAR_KCMPNM,
                                          data.obs[iobs].header, kcmpnm);
+        // this one isn't critical
+        sacio_getFloatHeader(SAC_FLOAT_STEL,
+                             data.obs[iobs].header, &stel);
         if (ierr != 0)
         {
             log_errorF("%s: Error reading header variables\n", fcnm);
@@ -740,6 +743,7 @@ int tdsearch_greens_repickGreensWithSTALTA(
     memory_free64f(&gxzPad);
     memory_free64f(&gyzPad);
     memory_free64f(&charFn);
+    stalta_free(&stalta);
     return ierr;
 }
 //============================================================================//

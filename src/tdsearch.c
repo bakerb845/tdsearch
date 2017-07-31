@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
          pickFile[PATH_MAX];
     int ierr, iobs;
     bool lsetNewPicks, lusePickFile;
+
     // Fire up MPI 
     // int provided;
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);

@@ -578,6 +578,7 @@ int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds)
     int id, idt, indx, iopt, it, jndx, l1, l2, lxc, maxlags,
         ndepth, ndt, nlag, npgrns, nrows, ntstar;
     const int ncols = 6;
+    enum isclError_enum ierr;
     tds->itopt =-1;
     tds->idopt =-1;
     ndepth = tds->ndepth;
@@ -634,14 +635,14 @@ int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds)
             unorm = cblas_dnrm2(npgrns, &u[indx], 1);
             if (maxlags < 0)
             {
-                iopt = array_argmax64f(lxc, &ud[jndx]);
+                iopt = array_argmax64f(lxc, &ud[jndx], &ierr);
             }
             else
             {
                 l1 = MAX(0,  npgrns - maxlags);
                 l2 = MIN(lxc-1, npgrns + maxlags);
                 nlag = l2 - l1 + 1;
-                iopt = l1 + array_argmax64f(nlag, &ud[jndx+l1]);
+                iopt = l1 + array_argmax64f(nlag, &ud[jndx+l1], &ierr);
  /*
 for (int k=0; k<lxc; k++)
 {
@@ -660,7 +661,7 @@ getchar();
     tds->synthetic = u;
     memory_free64f(&ud);
     // Compute the optimum indices
-    iopt = array_argmax64f(ndt, tds->xcorr);
+    iopt = array_argmax64f(ndt, tds->xcorr, &ierr);
     tds->idopt = iopt/tds->ntstar;
     tds->itopt = iopt - tds->idopt*tds->ntstar;
     if (tdsearch_gridSearch_gridToIndex(tds->itopt, tds->idopt, *tds) != iopt)

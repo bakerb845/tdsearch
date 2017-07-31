@@ -847,7 +847,7 @@ int tdsearch_hudson_setGrid(const int ntstar, const double *__restrict__ tstars,
         }
         return -1;
     }
-    if (array_min64f(ndepth, depths) < 0.0)
+    if (array_min64f(ndepth, depths, &ierr) < 0.0)
     {
         log_errorF("%s: Error all depths must be >= 0\n", fcnm);
         return -1;

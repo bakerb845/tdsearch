@@ -707,7 +707,7 @@ int tdsearch_greens_repickGreensWithSTALTA(
         g = NULL;
     }
     // Compute the pick time
-    charMax = array_max64f(npts, &charFn[prePad]);
+    charMax = array_max64f(npts, &charFn[prePad], &ierr);
     tpick =-1.0;
     for (k=prePad; k<npad; k++)
     {
@@ -719,7 +719,7 @@ int tdsearch_greens_repickGreensWithSTALTA(
     }
     if (tpick ==-1.0)
     {
-        tpick = (double) (array_argmax64f(npad, charFn) - prePad)*dt;
+        tpick = (double) (array_argmax64f(npad, charFn, &ierr) - prePad)*dt;
     }
     // Overwrite the pick; by this point should be on SAC_FLOAT_A
     //double apick;

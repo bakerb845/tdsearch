@@ -386,7 +386,10 @@ int tdsearch_data_setPicks(const char *ttimesDir,
         }
         else
         {
-            ierr = prepmt_pickFile_nonLinLoc2sac(pickFile, data->nobs,
+            ierr = prepmt_pickFile_nonLinLoc2sac(pickFile,
+                                                 SAC_FLOAT_A,
+                                                 SAC_CHAR_KA,
+                                                 data->nobs,
                                                  data->obs);
             if (ierr != 0)
             {

@@ -538,7 +538,7 @@ int tdSearch_gridSearch_setMomentTensorFromElements(
     mt[3] = m12;
     mt[4] = m13;
     mt[5] = m23;
-    ierr = compearth_convertMT(basis, NED, mt, mtNED);
+    ierr = compearth_convertMT(1, basis, CE_NED, mt, mtNED);
     if (ierr != 0)
     {
         printf("%s: Failed to set moment tensor\n", fcnm);

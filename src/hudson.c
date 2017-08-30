@@ -4,6 +4,7 @@
 #include <iniparser.h>
 #include "tdsearch_hudson.h"
 #include "cps.h"
+#include "iscl/array/array.h"
 #include "iscl/fft/fft.h"
 #include "iscl/log/log.h"
 #include "iscl/memory/memory.h"

@@ -26,6 +26,7 @@ char **tdsearch_commands_modifyCommands(
     const bool lisDigital = false; // SAC-PZ's aren't digital
     const bool laaFilter = true; // anti-alias filter in decimation
     const bool lfixPhase = true; // don't let anti-alias filter mess up picks
+    const bool lpad2 = false; // don't pad signals
     *ierr = 0;
     freqs = NULL;
     cut0 = options.cut0;
@@ -166,7 +167,7 @@ char **tdsearch_commands_modifyCommands(
                                                              lisDigital,
                                                              true, zpkFrom,
                                                              true, zpkTo,
-                                                             cwork);
+                                                             lpad2, cwork);
             }
             else
             {
@@ -175,7 +176,7 @@ char **tdsearch_commands_modifyCommands(
                                                              lisDigital,
                                                              true, zpkTo,
                                                              true, zpkFrom,
-                                                             cwork);
+                                                             lpad2, cwork);
             }
             memory_free64z(&zpkTo.p);
             memory_free64z(&zpkTo.z);

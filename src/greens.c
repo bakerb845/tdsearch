@@ -182,7 +182,7 @@ int tdsearch_greens_attachCommandsToGreens(const int iobs, const int ncmds,
  *
  */
 int tdsearch_greens_getGreensFunctionIndex(
-    const enum tdSearchGreens_enum GMT_TERM,
+    const enum prepmtGreens_enum GMT_TERM,
     const int iobs, const int itstar, const int idepth,
     const struct tdSearchGreens_struct grns)
 {
@@ -232,7 +232,7 @@ int tdsearch_greens_getGreensFunctionsIndices(
     const struct tdSearchGreens_struct grns, int indices[6])
 {
     int i, ierr;
-    const enum tdSearchGreens_enum mtTerm[6] = 
+    const enum prepmtGreens_enum mtTerm[6] = 
        {G11_GRNS, G22_GRNS, G33_GRNS, G12_GRNS, G13_GRNS, G23_GRNS};
     ierr = 0;
     for (i=0; i<6; i++)

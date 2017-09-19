@@ -39,7 +39,7 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                      const struct tdSearchHudson_struct ffGrns,
                                      struct tdSearchGreens_struct *grns);
 int tdsearch_greens_getGreensFunctionIndex(
-    const enum tdSearchGreens_enum GMT_TERM,
+    const enum prepmtGreens_enum GMT_TERM,
     const int iobs, const int itstar, const int idepth,
     const struct tdSearchGreens_struct grns);
 

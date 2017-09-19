@@ -3,16 +3,17 @@
 #include <sacio.h>
 #include <cps.h>
 #include <compearth.h>
+#include "prepmt/prepmt_struct.h"
 
-enum tdSearchGreens_enum
-{
-    G11_GRNS = 1,  /*!< Green's function that scales xx moment tensor term */
-    G22_GRNS = 2,  /*!< Green's function that scales yy moment tensor term */
-    G33_GRNS = 3,  /*!< Green's function that scales zz moment tensor term */
-    G12_GRNS = 4,  /*!< Green's function that scales xy moment tensor term */
-    G13_GRNS = 5,  /*!< Green's function that scales xz moment tensor term */
-    G23_GRNS = 6   /*!< Green's function that scales yz moment tensor term */
-};
+//enum tdSearchGreens_enum
+//{
+//    G11_GRNS = 1,  /*!< Green's function that scales xx moment tensor term */
+//    G22_GRNS = 2,  /*!< Green's function that scales yy moment tensor term */
+//    G33_GRNS = 3,  /*!< Green's function that scales zz moment tensor term */
+//    G12_GRNS = 4,  /*!< Green's function that scales xy moment tensor term */
+//    G13_GRNS = 5,  /*!< Green's function that scales xz moment tensor term */
+//    G23_GRNS = 6   /*!< Green's function that scales yz moment tensor term */
+//};
 
 struct tdSearchEventParms_struct
 {

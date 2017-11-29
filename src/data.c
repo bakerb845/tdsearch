@@ -11,7 +11,6 @@
 #include "ttimes.h"
 #include "iscl/array/array.h"
 #include "iscl/geodetic/geodetic.h"
-#include "iscl/log/log.h"
 #include "iscl/memory/memory.h"
 #include "iscl/os/os.h"
 #include "iscl/string/string.h"
@@ -38,7 +37,6 @@ int tdsearch_data_getPickStrategy(const char *iniFile,
                                   bool *lusePickFile,
                                   char pickFile[PATH_MAX])
 {
-    const char *fcnm = "tdsearch_data_getPickStrategy\0";
     const char *s;
     dictionary *ini;
     *lsetNewPicks = true;
@@ -46,7 +44,8 @@ int tdsearch_data_getPickStrategy(const char *iniFile,
     memset(pickFile, 0, PATH_MAX*sizeof(char));
     if (!os_path_isfile(iniFile))
     {
-        log_errorF("%s: Error ini file %s doesn't exist\n", fcnm, iniFile);
+        fprintf(stderr, "%s: Error ini file %s doesn't exist\n",
+                __func__, iniFile);
         return -1;
     } 
     ini = iniparser_load(iniFile);
@@ -60,7 +59,7 @@ int tdsearch_data_getPickStrategy(const char *iniFile,
         s = iniparser_getstring(ini, "tdSearch:data:pickFile\0", NULL);
         if (!os_path_isfile(s))
         {
-            log_errorF("%s: Pick file %s does not exist\n", fcnm, s);
+            fprintf(stderr, "%s: Pick file %s does not exist\n", __func__, s);
             *lusePickFile = false;
         }
         else
@@ -94,14 +93,14 @@ int tdsearch_data_getDefaultDTAndWindowFromIniFile(const char *iniFile,
                                                    double *cutStart,
                                                    double *cutEnd)
 {
-    const char *fcnm = "tdsearch_data_getDefaultDTAndWindowFromIniFile\0";
     dictionary *ini;
     *cutStart =-2.0;
     *cutEnd = 3.0; 
     *targetDt = 0.1;
     if (!os_path_isfile(iniFile))
     {
-        log_errorF("%s: Error ini file %s doesn't exist\n", fcnm, iniFile);
+        fprintf(stderr, "%s: Error ini file %s doesn't exist\n",
+                __func__, iniFile);
         return -1;
     }
     ini = iniparser_load(iniFile);
@@ -109,15 +108,15 @@ int tdsearch_data_getDefaultDTAndWindowFromIniFile(const char *iniFile,
     *cutEnd   = iniparser_getdouble(ini, "tdSearch:data:cutEnd\0", 3.0);
     if (*cutEnd <= *cutStart)
     {
-        log_errorF("%s: Error cutStart: %f must be less than cutEnd: %f\n",
-                   fcnm, *cutStart, *cutEnd);
+        fprintf(stderr, "%s: Error cutStart: %f must be less than cutEnd: %f\n",
+                __func__, *cutStart, *cutEnd);
         return -1; 
     }
     *targetDt = iniparser_getdouble(ini, "tdSearch:data:targetDt\0", 0.1);
     if (*targetDt <= 0.0)
     {
-        log_errorF("%s: Error targetDt %f must be positive\n",
-                   fcnm, *targetDt); 
+        fprintf(stderr, "%s: Error targetDt %f must be positive\n",
+                __func__, *targetDt); 
         return -1; 
     }
     iniparser_freedict(ini);
@@ -139,7 +138,6 @@ int tdsearch_data_getDefaultDTAndWindowFromIniFile(const char *iniFile,
 int tdsearch_data_initializeFromFile(const char *iniFile,
                                      struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_initializeFromFile\0";
     FILE *flist;
     const char *s;
     char **sacFiles, **sacpzFiles, **csplit, **cmds,
@@ -156,7 +154,8 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
     memset(data, 0, sizeof(struct tdSearchData_struct));
     if (!os_path_isfile(iniFile))
     {
-        log_errorF("%s: Error ini file %s doesn't exist\n", fcnm, iniFile);
+        fprintf(stderr, "%s: Error ini file %s doesn't exist\n",
+                __func__, iniFile);
         return -1;
     }
     ini = iniparser_load(iniFile); 
@@ -169,14 +168,15 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
         s = iniparser_getstring(ini, "tdSearch:data:dataList\0", NULL);
         if (!os_path_isfile(s))
         {
-            log_errorF("%s: Error file list %s does not exist\n", fcnm, s);
+            fprintf(stderr, "%s: Error file list %s does not exist\n",
+                    __func__, s);
             return -1;
         }
         flist = fopen(s, "r");
         while(fgets(cline, 128, flist) != NULL){nfiles = nfiles + 1;}
         if (nfiles < 1)
         {
-            log_errorF("%s: Error no files in file list\n", fcnm);
+            fprintf(stderr, "%s: Error no files in file list\n", __func__);
             fclose(flist);
         }
         sacFiles = (char **) calloc((size_t) nfiles, sizeof(char *));
@@ -193,8 +193,8 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
                 {
                     if (!os_path_isfile(csplit[0]))
                     {
-                        log_errorF("%s: Error data file %s doesn't exist\n",
-                                   fcnm, csplit[0]); 
+                        fprintf(stderr, "%s: Error data file %s doesnt exist\n",
+                                __func__, csplit[0]); 
                         goto NEXT_LINE; 
                     }
                     else
@@ -209,8 +209,8 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
                 {
                     if (!os_path_isfile(csplit[1]))
                     {
-                        log_errorF("%s: Warning pz file %s doesn't exist\n",
-                                   fcnm, csplit[1]);
+                        fprintf(stdout, "%s: Warning pz file %s doesnt exist\n",
+                                __func__, csplit[1]);
                     }
                     else
                     {
@@ -232,7 +232,7 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
         nfiles = iniparser_getint(ini, "tdSearch:data:nobs\0", 0); 
         if (nfiles < 1)
         {
-            log_errorF("%s: No files to read!\n", fcnm);
+            fprintf(stderr, "%s: No files to read!\n", __func__);
             ierr = 1;
             goto ERROR;
         }
@@ -247,7 +247,8 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
             s = iniparser_getstring(ini, varname, NULL);
             if (!os_path_isfile(s))
             {
-                log_errorF("%s: Error sac file %s doesn't exist\n", fcnm, s);
+                fprintf(stderr, "%s: Error sac file %s doesn't exist\n",
+                        __func__, s);
                 continue;
             }
             strcpy(sacFiles[nobs], s);
@@ -267,7 +268,7 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
                                    (const char **) sacpzFiles, data);
     if (ierr != 0)
     {
-        log_errorF("%s: Error reading data files\n", fcnm);
+        fprintf(stderr, "%s: Error reading data files\n", __func__);
         ierr = 1;
         goto ERROR;
     }
@@ -313,7 +314,8 @@ int tdsearch_data_initializeFromFile(const char *iniFile,
     }
     else
     {
-        log_errorF("%s: processing commands list not yet programmed\n", fcnm);
+        fprintf(stderr, "%s: processing commands list not yet programmed\n",
+                __func__);
         ierr = 1;
     }
 ERROR:;
@@ -364,7 +366,6 @@ int tdsearch_data_setPicks(const char *ttimesDir,
                            const char *pickFile,
                            struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_setPicks\0";
     double ptime;
     int ierr, iobs;
     // Set the theoretical pick times on KA and A
@@ -379,8 +380,8 @@ int tdsearch_data_setPicks(const char *ttimesDir,
                                                                  data);
             if (ierr != 0)
             {
-                printf("%s: Failed to set theoretical pick times\n",
-                       fcnm);
+                fprintf(stderr, "%s: Failed to set theoretical pick times\n",
+                       __func__);
                 return EXIT_FAILURE;
             }
         }
@@ -393,7 +394,8 @@ int tdsearch_data_setPicks(const char *ttimesDir,
                                                  data->obs);
             if (ierr != 0)
             {
-                printf("%s: Failed to set picks from file\n", fcnm);
+                fprintf(stderr, "%s: Failed to set picks from file\n",
+                        __func__);
                 return EXIT_FAILURE;
             }
         }   
@@ -405,8 +407,8 @@ int tdsearch_data_setPicks(const char *ttimesDir,
                                     data->obs[iobs].header, &ptime);
         if (ierr != 0)
         {
-            printf("%s: Observation %d requires a pick!\n",
-                   fcnm, iobs+1);
+            fprintf(stderr, "%s: Observation %d requires a pick!\n",
+                    __func__, iobs+1);
             return EXIT_FAILURE;
         }
     }
@@ -437,14 +439,13 @@ int tdsearch_data_attachCommandsToObservation(const int iobs,
                                               const char **cmds,
                                               struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_attachCommandsToObservation\0";
     int i;
     size_t lenos;
     // Make sure iobs is in bounds 
     if (iobs < 0 || iobs >= data->maxobs)
     {
-        log_errorF("%s: Error iobs is out of bounds [0,%d]\n",
-                   fcnm, iobs, data->maxobs);
+        fprintf(stderr, "%s: Error iobs %d is out of bounds [0,%d]\n",
+                __func__, iobs, data->maxobs);
         return -1;
     }
     // Try to handle space allocation if not already done
@@ -456,7 +457,7 @@ int tdsearch_data_attachCommandsToObservation(const int iobs,
     }
     if (data->cmds == NULL)
     {
-        log_errorF("%s: Error data->cmds is NULL\n", fcnm);
+        fprintf(stderr, "%s: Error data->cmds is NULL\n", __func__);
         return -1; 
     }
     if (ncmds == 0){return 0;}
@@ -484,7 +485,6 @@ int tdsearch_data_attachCommandsToObservation(const int iobs,
  */
 int tdsearch_data_free(struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_free\0";
     int i, ierr, k;
     ierr = 0;
     if (data->maxobs > 0 && data->obs != NULL)
@@ -494,8 +494,8 @@ int tdsearch_data_free(struct tdSearchData_struct *data)
             ierr += sacio_free(&data->obs[k]);
             if (ierr != 0)
             {
-                log_errorF("%s: Error freeing SAC data struct %d\n",
-                           fcnm, k+1);
+                fprintf(stderr, "%s: Error freeing SAC data struct %d\n",
+                         __func__, k+1);
             }
         }
         free(data->obs);
@@ -544,14 +544,13 @@ int tdsearch_data_readFiles(const int nfiles,
                             const char **pzfls,
                             struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_readFiles\0";
     int ierr, ierrAll, k;
     bool lreadpz;
     // Make sure there is something to read
     ierrAll = 0;
     if (nfiles < 1)
     {
-        log_errorF("%s: No data files to read\n", fcnm);
+        fprintf(stderr, "%s: No data files to read\n", __func__);
         return -1;
     }
     lreadpz = true;
@@ -572,7 +571,8 @@ int tdsearch_data_readFiles(const int nfiles,
         ierr = sacio_readTimeSeriesFile(sacfls[k], &data->obs[data->nobs]);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to read file %s\n", fcnm, sacfls[k]);
+            fprintf(stderr, "%s: Failed to read file %s\n",
+                    __func__, sacfls[k]);
             ierrAll = ierrAll + 1;
             continue;
         }
@@ -580,15 +580,20 @@ int tdsearch_data_readFiles(const int nfiles,
         {
             if (!os_path_isfile(pzfls[k]))
             {
-                log_warnF("%s: No pole-zero file corresponding to %s\n",
-                          fcnm, sacfls[k]);
+                fprintf(stdout, "%s: No pole-zero file corresponding to %s\n",
+                        __func__, sacfls[k]);
                 goto JUST_DATA;
             }
+        }
+        else
+        {
+           goto JUST_DATA;
         }
         ierr = sacio_readPoleZeroFile(pzfls[k], &data->obs[data->nobs].pz);
         if (ierr != 0)
         {
-            log_errorF("%s: Couldn't read %s pole-zero file\n", fcnm, pzfls[k]);
+            fprintf(stderr, "%s: Couldn't read %s pole-zero file\n",
+                    __func__, pzfls[k]);
         }
         JUST_DATA:;
         data->nobs = data->nobs + 1;
@@ -618,7 +623,6 @@ int tdsearch_data_setEventInformation(const double evla,
                                       const double evtime,
                                       struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_setEventInformation\0";
     double az, baz, dist, epoch, gcarc, o, stla, stlo;
     int ierr, k;
     ierr = 0;
@@ -628,20 +632,20 @@ int tdsearch_data_setEventInformation(const double evla,
         o = evtime - epoch;
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to get start time\n", fcnm);
+            fprintf(stderr, "%s: Failed to get start time\n", __func__);
             break;
         }
         // Get the station location
         ierr = sacio_getFloatHeader(SAC_FLOAT_STLA, data->obs[k].header, &stla);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to get station latitude\n", fcnm);
+            fprintf(stderr, "%s: Failed to get station latitude\n", __func__);
             break;
         }
         ierr = sacio_getFloatHeader(SAC_FLOAT_STLO, data->obs[k].header, &stlo);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to get station longitude\n", fcnm);
+            fprintf(stderr, "%s: Failed to get station longitude\n", __func__);
             break;
         }
         // Compute the azimuth, back-azimuth, distances 
@@ -679,22 +683,24 @@ int tdsearch_data_setEventInformation(const double evla,
 int tdsearch_data_verifyDistances(const double dmin, const double dmax,
                                   struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_verifyDistances\0";
     double gcarc;
     int ierr, k;
     if (dmin > dmax || dmin < 0.0 || dmax > 180.0)
     {
         if (dmin > dmax)
         {
-            log_errorF("%s: Error dmin %f > dmax %f\n", fcnm, dmin, dmax);
+            fprintf(stderr, "%s: Error dmin %f > dmax %f\n",
+                    __func__, dmin, dmax);
         }
         if (dmin < 0.0)
         {
-            log_errorF("%s: Error dmin %f must be non-negative\n", fcnm, dmin);
+            fprintf(stderr, "%s: Error dmin %f must be non-negative\n",
+                    __func__, dmin);
         }
         if (dmax > 180.0)
         {
-            log_errorF("%s: Error dmax %f must be < 180\n", fcnm, dmax);
+            fprintf(stderr, "%s: Error dmax %f must be < 180\n",
+                    __func__, dmax);
         }
         return -1;
     }
@@ -704,12 +710,12 @@ int tdsearch_data_verifyDistances(const double dmin, const double dmax,
                                     data->obs[k].header, &gcarc); 
         if (ierr != 0)
         {
-            log_errorF("%s: Error gcarc not set on header\n", fcnm);
+            fprintf(stderr, "%s: Error gcarc not set on header\n", __func__);
         }
         if (gcarc < dmin || gcarc > dmax)
         {
-            log_errorF("%s: Observations %d is out of bounds [%f %f]\n",
-                        fcnm, dmin, dmax);
+            fprintf(stderr, "%s: Observations %d is out of bounds [%f %f]\n",
+                    __func__, k, dmin, dmax);
             data->lskip[k] = true;
         }
     }
@@ -742,13 +748,12 @@ int tdsearch_data_computeTheoreticalPPickTimes(
     const struct tdSearchData_struct data,
     const int nwork, double *__restrict__ ptimes)
 {
-    const char *fcnm = "tdsearch_data_computeTheoreticalPPickTimes\0";
     struct ttimesTravelTime_struct ppick;
     double delta, depth, epoch, o;
     int ierr, k;
     if (nwork < data.nobs || ptimes == NULL)
     {
-        log_errorF("%s: Insufficient space for output ptimes\n", fcnm);
+        fprintf(stderr, "%s: Insufficient space for output ptimes\n", __func__);
         return -1;
     }
     memset(&ppick, 0, sizeof(struct ttimesTravelTime_struct));
@@ -757,38 +762,38 @@ int tdsearch_data_computeTheoreticalPPickTimes(
         ierr = sacio_getEpochalStartTime(data.obs[k].header, &epoch);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to get start time\n", fcnm);
+            fprintf(stderr, "%s: Failed to get start time\n", __func__);
             return -1;
         }
         ierr = sacio_getFloatHeader(SAC_FLOAT_O, data.obs[k].header, &o);
         if (ierr != 0)
         {
-            log_errorF("%s: Origin time not set\n", fcnm);
+            fprintf(stderr, "%s: Origin time not set\n", __func__);
             return -1;
         }
         ierr = sacio_getFloatHeader(SAC_FLOAT_GCARC,
                                     data.obs[k].header, &delta); 
         if (ierr != 0)
         {   
-            log_errorF("%s: Error event distance not set\n", fcnm);
+            fprintf(stderr, "%s: Error event distance not set\n", __func__);
             return -1; 
         }
         ierr = sacio_getFloatHeader(SAC_FLOAT_EVDP,
                                     data.obs[k].header, &depth);
         if (ierr != 0)
         {
-            log_errorF("%s: Error event depth not set\n", fcnm);
+            fprintf(stderr, "%s: Error event depth not set\n", __func__);
             return -1;
         }
         if (ierr != 0)
         {   
-            log_errorF("%s: Error getting origin time\n", fcnm);
+            fprintf(stderr, "%s: Error getting origin time\n", __func__);
             return -1;
         }
         ierr = ttimes_getFirstPPhase(delta, depth, dirnm, model, &ppick);
         if (ierr != 0)
         {
-            log_errorF("%s: Error computing P pick time\n", fcnm);
+            fprintf(stderr, "%s: Error computing P pick time\n", __func__);
             return -1;
         }
         ptimes[k] = epoch + o + ppick.tt;
@@ -826,7 +831,6 @@ int tdsearch_data_setPPickTimeFromTheoreticalTime(
     const enum sacHeader_enum pickHeaderName,
     struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_setPPickTimeFromTheoreticalTime\0";
     double *ptimes;
     char phaseName[8];
     int ierr, k, nobs;
@@ -840,7 +844,7 @@ int tdsearch_data_setPPickTimeFromTheoreticalTime(
     nobs = data->nobs;
     if (nobs < 1)
     {
-        log_errorF("%s: Error - no data\n", fcnm);
+        fprintf(stderr, "%s: Error - no data\n", __func__);
         return -1;
     }
     // Compute the theoretical primary arrival times
@@ -849,7 +853,7 @@ int tdsearch_data_setPPickTimeFromTheoreticalTime(
                                                       nobs, ptimes); 
     if (ierr != 0)
     {
-        log_errorF("%s: Error computing theorietical P times\n", fcnm);
+        fprintf(stderr, "%s: Error computing theorietical P times\n", __func__);
         goto ERROR;
     }
     // Set the theoretical arrival times on the header
@@ -861,7 +865,8 @@ int tdsearch_data_setPPickTimeFromTheoreticalTime(
                                             &data->obs[k].header);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to set pick time on header\n", fcnm);
+            fprintf(stderr, "%s: Failed to set pick time on header\n",
+                    __func__);
             goto ERROR;
         }
     }
@@ -895,7 +900,6 @@ int tdsearch_data_modifyProcessingCommands(
     const double cut0, const double cut1, const double targetDt,
     struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_modifyProcessingCommands\0";
     struct tdSearchModifyCommands_struct options;
     const char **cmds;
     char **newCmds;
@@ -919,8 +923,8 @@ int tdsearch_data_modifyProcessingCommands(
                                                    data->obs[k], &ierr);
         if (ierr != 0)
         {
-            log_errorF("%s: Error modifying commands for obs: %d\n",
-                       fcnm, k+1); 
+            fprintf(stderr, "%s: Error modifying commands for obs: %d\n",
+                    __func__, k+1); 
             break;
         }
         // Reset the command structure and free newCmds
@@ -940,7 +944,6 @@ int tdsearch_data_writeFiles(const char *outdir,
                              const char *suffix,
                              const struct tdSearchData_struct data)
 {
-    const char *fcnm = "tdsearch_data_writeFiles\0";
     char fname[PATH_MAX], root[PATH_MAX], kcmpnm[8],
          knetwk[8], khole[8], kstnm[8];
     int ierr, k;
@@ -969,7 +972,8 @@ int tdsearch_data_writeFiles(const char *outdir,
     ierr = os_makedirs(root);
     if (ierr != 0)
     {
-        log_errorF("%s: Error making output directory: %s\n", fcnm, root);
+        fprintf(stderr, "%s: Error making output directory: %s\n",
+                __func__, root);
         return -1;
     }
     lsuffix = false;
@@ -1005,7 +1009,6 @@ int tdsearch_data_writeFiles(const char *outdir,
  */
 int tdsearch_data_process(struct tdSearchData_struct *data)
 {
-    const char *fcnm = "tdsearch_data_process\0";
     struct serialCommands_struct *commands;
     double dt, dt0, epoch, epoch0, time, *ycopy;
     int *nyAll, i, i0, ierr, k, npts0, nq, nwork;
@@ -1030,7 +1033,8 @@ int tdsearch_data_process(struct tdSearchData_struct *data)
                                       &commands[k]);
         if (ierr != 0)
         {
-            log_errorF("%s: Error setting serial command string\n", fcnm);
+            fprintf(stderr, "%s: Error setting serial command string\n",
+                    __func__);
             goto ERROR;
         }
         process_setSerialCommandsData64f(data->obs[k].npts,
@@ -1041,7 +1045,8 @@ int tdsearch_data_process(struct tdSearchData_struct *data)
     ierr = process_applyMultipleSerialCommands(data->nobs, commands);
     if (ierr != 0)
     {
-        log_errorF("%s: Error applying serial commands chains to data\n", fcnm);
+        fprintf(stderr, "%s: Error applying serial commands chains to data\n",
+                __func__);
         goto ERROR;
     }
     // Get the workspace
@@ -1062,7 +1067,8 @@ int tdsearch_data_process(struct tdSearchData_struct *data)
         ierr = sacio_getEpochalStartTime(data->obs[k].header, &epoch0);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to get start time of trace\n", fcnm);
+            fprintf(stderr, "%s: Failed to get start time of trace\n",
+                     __func__);
             goto ERROR;
         }
         epoch = epoch0;
@@ -1097,7 +1103,8 @@ int tdsearch_data_process(struct tdSearchData_struct *data)
                                                     &nyAll[k], ycopy);
             if (ierr != 0)
             {
-                log_errorF("%s: Error extracting data onto ycopy\n", fcnm);
+                fprintf(stderr, "%s: Error extracting data onto ycopy\n",
+                        __func__);
                 goto ERROR;
             }
             sacio_freeData(&data->obs[k]);
@@ -1119,7 +1126,7 @@ int tdsearch_data_process(struct tdSearchData_struct *data)
                                                     data->obs[k].data);
             if (ierr != 0)
             {
-                log_errorF("%s: Error extracting data\n", fcnm);
+                fprintf(stderr, "%s: Error extracting data\n", __func__);
                 goto ERROR;
             }
         }

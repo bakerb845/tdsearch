@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <mpi.h>
+//#include <mpi.h>
 #include "tdsearch.h"
 #include "prepmt/prepmt_pickFile.h"
 #include "iscl/iscl/iscl.h"

@@ -1,6 +1,6 @@
 # Introduction
 
-These are the requisite libraries for optimizing the attenutation t\* and depth estimation parameter for primary waveforms observed at teleseismic distances.  This library was written for CTBTO's Expert Technical Analysis group by Instrumental Software Technology's Inc.
+These are the requisite libraries for optimizing the attenutation t\* and depth estimation parameter for short-peroid primary waveforms observed at teleseismic distances.
 
 # Installation Requirements
 

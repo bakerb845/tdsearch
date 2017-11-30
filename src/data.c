@@ -347,6 +347,8 @@ ERROR:;
  * @param[in] lsetNewPicks  If true then this function will update picks.
  *                          Otherwise, it will simply verify the first
  *                          arrivals are set in the header.
+ * @param[in] lusePickFile  If true then use a pick file to apply picks.
+ *                          Otherwise, set picks from theoretical travel times.
  * @param[in] pickFile      If setting picks from file; then this is the
  *                          NonLinLoc format pick file.
  * @param[in,out] data      On input holds the data (and potentially picks).
@@ -878,7 +880,7 @@ ERROR:;
 /*!
  * @brief Some ad-hoc rules for fixing the data processing commands. 
  *
- * @parma[in] iodva       Desired units that should be consistent
+ * @param[in] iodva       Desired units that should be consistent
  *                        with forward modeling.  
  *                         iodva = 0 -> deconvolve to displacment.
  *                         iodva = 1 -> deconvolve to velocity.

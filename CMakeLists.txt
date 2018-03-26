@@ -39,14 +39,14 @@ IF (TDSEARCH_USE_INTEL)
    SET(LINK_LIB_ALL ${PARMT_LIBRARY} ${COMPEARTH_LIBRARY}
                     ${CPS_LIBRARY} ${SACIO_LIBRARY} ${ISPL_LIBRARY} ${ISCL_LIBRARY}
                     -Wl,--start-group ${MKL_LIBRARY} -Wl,--end-group ${IPP_LIBRARY}
-                    ${TTIMES_LIBRARY} ${H5_LIBRARY}
+                    ${TTIMES_LIBRARY} ${H5_LIBRARY} ${CJSON_LIBRARY}
                     ${INIPARSER_LIBRARY} ${MPI_C_LIBRARIES}
                     -lm -ldl -lpthread -lpng -lstdc++)
 ELSE ()
    SET(LINK_LIB_ALL ${PARMT_LIBRARY} ${COMPEARTH_LIBRARY}
                     ${CPS_LIBRARY} ${SACIO_LIBRARY} ${ISPL_LIBRARY} ${ISCL_LIBRARY}
                     -Wl,--start-group ${MKL_LIBRARY} -Wl,--end-group ${IPP_LIBRARY}
-                    ${TTIMES_LIBRARY} ${H5_LIBRARY}
+                    ${TTIMES_LIBRARY} ${H5_LIBRARY} ${CJSON_LIBRARY}
                     ${INIPARSER_LIBRARY} ${MPI_C_LIBRARIES}
                     -lm -ldl -lpthread -lpng -lstdc++)
 ENDIF(TDSEARCH_USE_INTEL)

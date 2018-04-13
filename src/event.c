@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <iniparser.h>
 #include "tdsearch_event.h"
-#include "iscl/log/log.h"
 #include "iscl/os/os.h"
 #include "iscl/time/time.h"
 
@@ -63,7 +62,6 @@ int tdsearch_event_initializeFromIniFile(
     const char *fname,
     struct tdSearchEventParms_struct *event)
 {
-    const char *fcnm = "tdsearch_event_initializeFromIniFile\0";
     const char *s;
     double second;
     int dom, month, nzhour, nzmin, nzsec, nzmusec, nzyear;
@@ -76,7 +74,8 @@ int tdsearch_event_initializeFromIniFile(
     // Verify the file exists
     if (!os_path_isfile(fname))
     {
-        log_errorF("%s: Error ini file %s doesn't exist\n", fcnm, fname);
+        fprintf(stderr, "%s: Error ini file %s doesn't exist\n",
+                __func__, fname);
         return -1;
     }
     ini = iniparser_load(fname);

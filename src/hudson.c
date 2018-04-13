@@ -6,7 +6,6 @@
 #include "cps.h"
 #include "iscl/array/array.h"
 #include "iscl/fft/fft.h"
-#include "iscl/log/log.h"
 #include "iscl/memory/memory.h"
 #include "iscl/os/os.h"
 #include "iscl/sorting/sorting.h"
@@ -30,20 +29,19 @@ static int grd2ijk(const int igrd,
 int tdsearch_hudson_readHudson96Parameters(const char *iniFile,
                                            struct hudson96_parms_struct *parms)
 {
-    const char *fcnm = "tdsearch_hudson_readHudson96Parameters\0";
     const char *s;
     dictionary *ini;
     //------------------------------------------------------------------------//
     cps_setHudson96Defaults(parms);
     if (!os_path_isfile(iniFile))
     {
-        log_errorF("%s: ini file: %s does not exist\n", fcnm, iniFile);
+        fprintf(stderr, "%s: ini file: %s does not exist\n", __func__, iniFile);
         return -1;
     }
     ini = iniparser_load(iniFile);
     if (ini == NULL)
     {
-        log_errorF("%s: Cannot parse ini file\n", fcnm);
+        fprintf(stderr, "%s: Cannot parse ini file\n", __func__);
         return -1;
     }
     // Teleseismic model
@@ -114,20 +112,19 @@ int tdsearch_hudson_readHudson96Parameters(const char *iniFile,
 int tdsearch_hudson_readHpulse96Parameters(const char *iniFile,
                                            struct hpulse96_parms_struct *parms)
 {
-    const char *fcnm = "readini_hpulse\0";
     const char *s;
     dictionary *ini;
     //------------------------------------------------------------------------//
     cps_setHpulse96Defaults(parms);
     if (!os_path_isfile(iniFile))
     {
-        log_errorF("%s: ini file: %s does not exist\n", fcnm, iniFile);
+        fprintf(stderr, "%s: ini file: %s does not exist\n", __func__, iniFile);
         return -1;
     }
     ini = iniparser_load(iniFile);
     if (ini == NULL)
     {
-        log_errorF("%s: Cannot parse ini file\n", fcnm);
+        fprintf(stderr, "%s: Cannot parse ini file\n", __func__);
         return -1;
     }
     parms->ntau = iniparser_getint(ini, "hpulse96:ntau", -1);
@@ -141,13 +138,13 @@ int tdsearch_hudson_readHpulse96Parameters(const char *iniFile,
             strcpy(parms->rfile, s);
             if (!os_path_isfile(parms->rfile))
             {
-                log_errorF("%s: Response file does not exist!\n", fcnm);
+                fprintf(stderr, "%s: Response file does not exist!\n", __func__);
                 return -1;
             }
         }
         else
         {
-            log_errorF("%s: Response file not specified!\n", fcnm);
+            fprintf(stderr, "%s: Response file not specified!\n", __func__);
             return -1;
         }
     }
@@ -163,12 +160,12 @@ int tdsearch_hudson_readHpulse96Parameters(const char *iniFile,
     if (parms->ipt == 2 && parms->alp <= 0.0){parms->alp = 1.0;}
     if (parms->ipt == 2 && parms->alp < 0.0)
     {
-        log_errorF("%s: No alpha for Ohnaka pulse\n", fcnm);
+        fprintf(stderr, "%s: No alpha for Ohnaka pulse\n", __func__);
         return -1;
     }
     if (parms->ipt < 0)
     {
-        log_errorF("%s: No pulse shape defined\n", fcnm);
+        fprintf(stderr, "%s: No pulse shape defined\n", __func__);
         return -1;
     }
     if (parms->iodva < 0){parms->iodva = parms->idva;}
@@ -193,7 +190,6 @@ int tdsearch_hudson_initializeParametersFromIniFile(
     const char *iniFile,
     struct tdSearchHudson_struct *grns)
 {
-    const char *fcnm = "tdsearch_hudson_initializeParametersFromIniFile\0";
     const char *s;
     struct hudson96_parms_struct hudsonParms;
     struct hpulse96_parms_struct hpulseParms;
@@ -204,13 +200,13 @@ int tdsearch_hudson_initializeParametersFromIniFile(
     ierr1 = tdsearch_hudson_readHudson96Parameters(iniFile, &hudsonParms);
     if (ierr1 != 0)
     {
-        log_errorF("%s: Error reading hudson96 parameters\n", fcnm);
+        fprintf(stderr, "%s: Error reading hudson96 parameters\n", __func__);
         ierr = ierr + 1;
     }
     ierr1 = tdsearch_hudson_readHpulse96Parameters(iniFile, &hpulseParms);
     if (ierr1 != 0)
     {   
-        log_errorF("%s: Error reading hpulse96 parameters\n", fcnm);
+        fprintf(stderr, "%s: Error reading hpulse96 parameters\n", __func__);
         ierr = ierr + 1;
     }
     // Set the modeling parameters on the modeling structure anyway
@@ -219,13 +215,13 @@ int tdsearch_hudson_initializeParametersFromIniFile(
     // Set a few more modeling parameters
     if (!os_path_isfile(iniFile))
     {
-        log_errorF("%s: Error ini file doesn't exist\n", fcnm);
+        fprintf(stderr, "%s: Error ini file doesn't exist\n", __func__);
         return -1;
     }
     ini = iniparser_load(iniFile);
     if (ini == NULL)
     {
-        log_errorF("%s: Cannot parse ini file\n", fcnm);
+        fprintf(stderr, "%s: Cannot parse ini file\n", __func__);
         return -1; 
     }
     grns->luseCrust1 = iniparser_getboolean(ini, "tdSearch:greens:useCrust\0",
@@ -236,8 +232,8 @@ int tdsearch_hudson_initializeParametersFromIniFile(
                                 CPS_DEFAULT_CRUST1_DIRECTORY);
         if (!os_path_isdir(s))
         {
-            log_errorF("%s: Error crust1.0 directory %s doesn't exist\n",
-                       fcnm, s);
+            fprintf(stderr, "%s: Error crust1.0 directory %s doesn't exist\n",
+                     __func__, s);
             grns->luseCrust1 = false;
         }
         else
@@ -252,7 +248,7 @@ int tdsearch_hudson_initializeParametersFromIniFile(
         s = iniparser_getstring(ini, "tdSearch:greens:sourceModel\0", NULL);
         if (!os_path_isfile(s))
         {
-            log_errorF("%s: Error source model %s doesn't exist\n", fcnm, s);
+            fprintf(stderr, "%s: Error source model %s doesn't exist\n", __func__, s);
             grns->luseSrcModel = false;
         }
         else
@@ -314,13 +310,12 @@ int tdsearch_hudson_setDistancesToModel(const double distMin,
                                         const struct tdSearchData_struct data,
                                         struct tdSearchHudson_struct *grns)
 {
-    const char *fcnm = "tdsearch_hudson_setDistancesToModel\0";
     double *gcarc;
     int *grnsToDataMap, *perm, ierr, k, nuse;
     const double tol = 0.001/111.195; // Stations are colocated at 1 m.
     if (data.nobs < 1)
     {
-        log_errorF("%s: Error no data to model\n", fcnm);
+        fprintf(stderr, "%s: Error no data to model\n", __func__);
         return -1;
     }
     gcarc = memory_calloc64f(data.nobs+1);
@@ -330,14 +325,14 @@ int tdsearch_hudson_setDistancesToModel(const double distMin,
                                     &gcarc[k]);
         if (ierr != 0)
         {
-            log_errorF("%s: Error - gcarc not set on waveform %d\n", fcnm, k+1);
+            fprintf(stderr, "%s: Error - gcarc not set on waveform %d\n", __func__, k+1);
             gcarc[k] =-12345.0;
             continue;
         }
         if (gcarc[k] < distMin || gcarc[k] > distMax)
         {
-            log_errorF("%s: Error gcarc %f not in modeling bounds [%f,%f]\n",
-                       fcnm, gcarc[k], distMin, distMax);
+            fprintf(stderr, "%s: Error gcarc %f not in modeling bounds [%f,%f]\n",
+                       __func__, gcarc[k], distMin, distMax);
             gcarc[k] =-12345.0;
             continue;
         }
@@ -399,7 +394,6 @@ int tdsearch_hudson_observationDepthTstarToIndex(
 int tdsearch_hudson_ffGreenToGreens(const struct tdSearchData_struct data,
                                     struct tdSearchHudson_struct *grns )
 {
-    const char *fcnm = "tdsearch_hudson_ffGreenToGreens\0";
     double az, baz, cmpaz, cmpinc;
     int ierr, iobs;
     const double xmom = 1.0;     // no confusing `relative' magnitudes 
@@ -422,7 +416,7 @@ int tdsearch_hudson_ffGreenToGreens(const struct tdSearchData_struct data,
                                      data.obs[iobs].header, &cmpaz);
         if (ierr != 0)
         {
-            log_errorF("%s: Error reading header variables\n", fcnm);
+            fprintf(stderr, "%s: Error reading header variables\n", __func__);
             break;
         }
         // Rescale the Green's functions
@@ -440,7 +434,6 @@ int tdsearch_hudson_ffGreenToGreens(const struct tdSearchData_struct data,
 int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
                                     struct tdSearchHudson_struct *grns)
 {
-    const char *fcnm = "tdsearch_hudson_computeGreensFF\0";
     struct hudson96_parms_struct hudson96ParmsWork;
     struct hpulse96_parms_struct hpulse96ParmsWork;
     struct hpulse96_data_struct zresp;
@@ -489,19 +482,19 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
     cps_globalModel_ak135f(&telmod);
     if (grns->luseCrust1)
     {
-        printf("%s: Reading crust1.0...\n", fcnm);
+        printf("%s: Reading crust1.0...\n", __func__);
         lats = memory_calloc64f(data.nobs);
         lons = memory_calloc64f(data.nobs);
         ierr = sacio_getFloatHeader(SAC_FLOAT_EVLA, data.obs[0].header, &evla);
         if (ierr != 0)
         {
-            log_errorF("%s: Error - evla not set\n", fcnm);
+            fprintf(stderr, "%s: Error - evla not set\n", __func__);
             return -1;
         }
         ierr = sacio_getFloatHeader(SAC_FLOAT_EVLO, data.obs[0].header, &evlo);
         if (ierr != 0)
         {
-            log_errorF("%s: Error - evlo not set\n", fcnm);
+            fprintf(stderr, "%s: Error - evlo not set\n", __func__);
             return -1;
         }
         for (iobs=0; iobs<data.nobs; iobs++) 
@@ -518,7 +511,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
                                                &srcmod, recmod);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to load crust1.0 model\n", fcnm);
+            fprintf(stderr, "%s: Failed to load crust1.0 model\n", __func__);
             return -1;
         }
         memory_free64f(&lats);
@@ -527,7 +520,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
     // Use teleseismic model for receiver model
     else
     {
-        printf("%s: Setting receiver models to teleseismic model\n", fcnm);
+        fprintf(stdout, "%s: Setting receiver models to teleseismic model\n", __func__);
         for (iobs=0; iobs<data.nobs; iobs++)
         {
             cps_utils_copyVmodelStruct(telmod, &recmod[iobs]);
@@ -540,11 +533,11 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
         ierr = cps_getmod(grns->srcModelName, &srcmod);
         if (ierr != 0){return EXIT_FAILURE;}
     }
-    printf("%s: Computing Green's functions...\n", fcnm);
+    fprintf(stdout, "%s: Computing Green's functions...\n", __func__);
     // Otherwise source to teleseismic model
     if (!grns->luseSrcModel && !grns->luseCrust1)
     {
-        printf("%s: Setting source model to teleseismic model\n", fcnm);
+        fprintf(stdout, "%s: Setting source model to teleseismic model\n", __func__);
         cps_utils_copyVmodelStruct(telmod, &srcmod);
     }
     // Set space for output
@@ -564,7 +557,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
                        &it, &idep, &iobs);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to convert to grid\n", fcnm);
+            fprintf(stderr, "%s: Failed to convert to grid\n", __func__);
             break;
         }
         if (data.lskip[iobs]){continue;}
@@ -577,21 +570,21 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
                                     data.obs[iobs].header, &dt);
         if (ierr != 0)
         {
-            log_errorF("%s: Could not get sampling period\n", fcnm);
+            fprintf(stderr, "%s: Could not get sampling period\n", __func__);
             break;
         }
         ierr = sacio_getFloatHeader(SAC_FLOAT_GCARC,
                                     data.obs[iobs].header, &gcarc);
         if (ierr != 0)
         {
-            log_errorF("%s: Could not get gcarc\n", fcnm);
+            fprintf(stderr, "%s: Could not get gcarc\n", __func__);
             break;
         }
         ierr = sacio_getIntegerHeader(SAC_INT_NPTS,
                                       data.obs[iobs].header, &npts);
         if (ierr != 0)
         {
-            log_errorF("%s: Could not get npts\n", fcnm);
+            fprintf(stderr, "%s: Could not get npts\n", __func__);
             break;
         }
         // Tie waveform modeling to first pick type 
@@ -616,7 +609,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
                 }
                 else
                 {
-                    log_errorF("%s: Can't classify phase: %s\n", phaseName);
+                    fprintf(stderr, "%s: Can't classify phase: %s\n", __func__, phaseName);
                     lfound = false;
                 }
                 break;
@@ -624,7 +617,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
         }
         if (!lfound)
         {
-            log_warnF("%s: No pick available - won't be able to align\n", fcnm);
+            fprintf(stdout, "%s: No pick available - won't be able to align\n", __func__);
             continue;
         }
         memset(&zresp, 0, sizeof(struct hpulse96_data_struct));
@@ -644,7 +637,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
                                    telmod, recmod[iobs], srcmod, &ierr);
         if (ierr != 0)
         {
-            log_errorF("%s: Error calling hudson96\n", fcnm);
+            fprintf(stderr, "%s: Error calling hudson96\n", __func__);
             ierrAll = ierrAll + 1;
             goto NEXT_OBS;
         }
@@ -653,7 +646,7 @@ int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
                                     &zresp, &ierr);
         if (ierr != 0)
         {
-            log_errorF("%s: Error calling hpulse96 interface\n", fcnm);
+            fprintf(stderr, "%s: Error calling hpulse96 interface\n", __func__);
             ierrAll = ierrAll + 1;
             goto NEXT_OBS;
         }
@@ -826,31 +819,30 @@ int tdsearch_hudson_setGrid(const int ntstar, const double *__restrict__ tstars,
                             const int ndepth, const double *__restrict__ depths,
                             struct tdSearchHudson_struct *grns)
 {
-    const char *fcnm = "tdsearch_hudson_setGrid\0";
     int ierr;
     if (ntstar < 1 || ndepth < 1 || tstars == NULL || depths == NULL)
     {
         if (ntstar < 1)
         {
-            log_errorF("%s: Error no t*'s to model\n", fcnm);
+            fprintf(stderr, "%s: Error no t*'s to model\n", __func__);
         }
         if (ndepth < 1)
         {
-            log_errorF("%s: Error no depths to model\n", fcnm);
+            fprintf(stderr, "%s: Error no depths to model\n", __func__);
         }
         if (tstars == NULL)
         {
-            log_errorF("%s: Error tstars cannot be NULL\n", fcnm);
+            fprintf(stderr, "%s: Error tstars cannot be NULL\n", __func__);
         }
         if (depths == NULL)
         {
-            log_errorF("%s: Error depths cannot be NULL\n", fcnm);
+            fprintf(stderr, "%s: Error depths cannot be NULL\n", __func__);
         }
         return -1;
     }
     if (array_min64f(ndepth, depths, &ierr) < 0.0)
     {
-        log_errorF("%s: Error all depths must be >= 0\n", fcnm);
+        fprintf(stderr, "%s: Error all depths must be >= 0\n", __func__);
         return -1;
     }
     grns->ntstar = ntstar;

@@ -15,8 +15,8 @@ The following list is the requisite software libraries for building tdsearch.
   - The high-performance file IO library [HDF5](https://support.hdfgroup.org/HDF5/).
   - The geodetic computation [GeographicLib](https://geographiclib.sourceforge.io/).
   - ISTI's [libiscl](https://github.com/bakerb845/libiscl).
-  - The [ttimes](https://github.com/bakerb845/libttimes) for theoretical travel-times.
-  - ISTI's [SAC IO](https://github.com/bakerb845/sacio).
+  - The [ttimes](https://gitlab.isti.com/bbaker/libttimes) for theoretical travel-times.
+  - ISTI's [SAC IO](https://gitlab.isti.com/bbaker/sacio).
   - ISTI's signals processing library [ISPL](https://github.com/bakerb845/ispl/).
   - The library version of Programs in Seismology's waveform modeling routines [libcps](https://github.com/bakerb845/libcps).
   - The initialization file parsing library [iniparser](https://github.com/ndevilla/iniparser).

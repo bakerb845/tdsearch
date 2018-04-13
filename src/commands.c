@@ -5,7 +5,6 @@
 #include "tdsearch_commands.h"
 #include "sacio.h"
 #include "ispl/process.h"
-#include "iscl/log/log.h"
 #include "iscl/array/array.h"
 #include "iscl/memory/memory.h"
 #include "iscl/string/string.h"
@@ -16,7 +15,6 @@ char **tdsearch_commands_modifyCommands(
     const struct sacData_struct data,
     int *ierr)
 {
-    const char *fcnm = "tdsearch_commands_modifyCommands\0";
     char **newCmds, **cmdSplit, cwork[MAX_CMD_LEN], c64[64], cmd1[64], cmd2[64];
     double *freqs, cut0, cut1, dt0, epoch, ptime, t0, t1, targetDt;
     struct signalZPK_struct zpkFrom, zpkTo;
@@ -36,7 +34,7 @@ char **tdsearch_commands_modifyCommands(
     iodva = options.iodva;
     if (iodva < 0 || iodva > 3)
     {
-        printf("%s: No idea what iodva=%d means\n", fcnm, iodva);
+        fprintf(stdout, "%s: No idea what iodva=%d means\n", __func__, iodva);
     }
     newCmds = NULL;
     if (ncmds < 1){return 0;} // Nothing to do
@@ -132,7 +130,7 @@ char **tdsearch_commands_modifyCommands(
                 }
                 else if (data.pz.inputUnits == SAC_UNKNOWN_UNITS)
                 {
-                    printf("%s: Unknown input units\n", fcnm);
+                    fprintf(stderr, "%s: Unknown input units\n", __func__);
                     *ierr = 1;
                     break;
                 }
@@ -184,7 +182,8 @@ char **tdsearch_commands_modifyCommands(
             memory_free64z(&zpkFrom.z);
             if (*ierr != 0)
             {
-                log_errorF("%s: Error setting transfer command\n", fcnm);
+                fprintf(stderr, "%s: Error setting transfer command\n",
+                        __func__);
                 goto ERROR;
             }
 /*
@@ -300,14 +299,14 @@ transfer_poleZeroInstrumentResponsesToString(
             *ierr = sacio_getEpochalStartTime(data.header, &epoch);
             if (*ierr != 0)
             {
-                log_errorF("%s: Failed to get start time\n", fcnm);
+                fprintf(stderr, "%s: Failed to get start time\n", __func__);
                 goto ERROR;
             }
             *ierr = sacio_getFloatHeader(SAC_FLOAT_A, data.header,
                                          &ptime);
             if (*ierr != 0)
             {
-                log_errorF("%s: Failed to get pick time\n", fcnm);
+                fprintf(stderr, "%s: Failed to get pick time\n", __func__);
                 goto ERROR;
             }
             t0 = epoch + ptime + cut0; // superfluous; epoch will be removed
@@ -315,7 +314,7 @@ transfer_poleZeroInstrumentResponsesToString(
             *ierr = cut_cutEpochalTimesToString(dt0, epoch, t0, t1, cwork);
             if (*ierr != 0)
             {
-                log_errorF("%s: Failed to modify cut command\n", fcnm);
+                fprintf(stderr, "%s: Failed to modify cut command\n", __func__);
                 goto ERROR;
             }
         }
@@ -326,8 +325,8 @@ transfer_poleZeroInstrumentResponsesToString(
                                                         cwork);
             if (*ierr != 0)
             {
-                log_errorF("%s: Couldn't modify the decimate command\n",
-                           fcnm);
+                fprintf(stderr, "%s: Couldn't modify the decimate command\n",
+                        __func__);
                 goto ERROR;
             }
             dt0 = targetDt;
@@ -338,8 +337,8 @@ transfer_poleZeroInstrumentResponsesToString(
                         dt0, targetDt, cwork);
             if (*ierr != 0)
             {
-                log_errorF("%s: Couldn't modify downsample command\n",
-                           fcnm);
+                fprintf(stderr, "%s: Couldn't modify downsample command\n",
+                        __func__);
                 goto ERROR;
             }
             dt0 = targetDt;

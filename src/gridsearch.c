@@ -16,7 +16,6 @@
 #include "sacio.h"
 #include "parmt_utils.h"
 #include "iscl/array/array.h"
-#include "iscl/log/log.h"
 #include "iscl/memory/memory.h"
 #include "iscl/os/os.h"
 #include "iscl/signal/convolve.h"
@@ -45,20 +44,19 @@
  */
 int tdsearch_gridSearch_setDefaults(struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdsearch_gridSearch_setDefaults\0";
     int ierr;
     memset(tds, 0, sizeof(struct tdSearch_struct));
     tds->maxShiftTime = DBL_MAX;
     ierr = tdsearch_gridSearch_defineTstarGrid(NTSTAR, TSTAR0, TSTAR1, tds);
     if (ierr != 0)
     {
-        log_errorF("%s: Failed to set t* grid\n", fcnm);
+        fprintf(stderr, "%s: Failed to set t* grid\n", __func__);
         return -1;
     } 
     ierr = tdsearch_gridSearch_defineDepthGrid(NDEPTH, DEPTH0, DEPTH1, tds);
     if (ierr != 0)
     {
-        log_errorF("%s: Failed to set depth grid\n", fcnm);
+        fprintf(stderr, "%s: Failed to set depth grid\n", __func__);
         return -1;
     }
     return ierr;
@@ -108,24 +106,23 @@ int tdsearch_gridSearch_defineTstarGrid(const int ntstars, const double tstar0,
                                         const double tstar1,
                                         struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdsearch_gridSearch_defineTstarGrid\0";
     int ierr;
     tds->ntstar = 0;
     if (ntstars < 1 || tstar0 < 0.0 || tstar0 > tstar1)
     {
         if (ntstars < 1)
         {
-            log_errorF("%s: Error no t*'s %d in search\n", fcnm, ntstars);
+            fprintf(stderr, "%s: Error no t*'s %d in search\n", __func__, ntstars);
         }
         if (tstar0 < 0.0)
         {
-            log_errorF("%s: Error tstar0 %f must be non-negative\n",
-                       fcnm, tstar0);
+            fprintf(stderr, "%s: Error tstar0 %f must be non-negative\n",
+                    __func__, tstar0);
         }
         if (tstar0 > tstar1)
         {
-            log_errorF("%s: Error tstar0 %f > tstar1 %f\n",
-                       fcnm, tstar0, tstar1);
+            fprintf(stderr, "%s: Error tstar0 %f > tstar1 %f\n",
+                    __func__, tstar0, tstar1);
         }
         return -1;
     }
@@ -153,24 +150,24 @@ int tdsearch_gridSearch_defineDepthGrid(const int ndepths, const double depth0,
                                         const double depth1,
                                         struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdsearch_gridSearch_defineDepthGrid\0";
     int ierr;
     tds->ndepth = 0;
     if (ndepths < 1 || depth0 < 0.0 || depth0 > depth1)
     {   
         if (ndepths < 1)
         {
-            log_errorF("%s: Error no depthss %d in search\n", fcnm, ndepths);
+            fprintf(stderr, "%s: Error no depthss %d in search\n",
+                    __func__, ndepths);
         }
         if (depth0 < 0.0)
         {
-            log_errorF("%s: Error depth0 %f must be non-negative\n",
-                       fcnm, depth0);
+            fprintf(stderr, "%s: Error depth0 %f must be non-negative\n",
+                    __func__, depth0);
         }
         if (depth0 > depth1)
         {
-            log_errorF("%s: Error depth0 %f > depth1 %f\n",
-                       fcnm, depth0, depth1);
+            fprintf(stderr, "%s: Error depth0 %f > depth1 %f\n",
+                    __func__, depth0, depth1);
         }
         return -1; 
     }
@@ -195,7 +192,6 @@ int tdsearch_gridSearch_defineDepthGrid(const int ndepths, const double depth0,
 int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
                                            struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdsearch_gridSearch_initializeFromFile\0";
     double depth0, depth1, tstar0, tstar1;
     dictionary *ini;
     int ierr, ndepth, ntstar;
@@ -205,7 +201,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     // Verify the file exists
     if (!os_path_isfile(iniFile))
     {   
-        log_errorF("%s: Error ini file %s doesn't exist\n", fcnm, iniFile);
+        fprintf(stderr, "%s: Error ini file %s doesn't exist\n", __func__, iniFile);
         return -1; 
     }   
     ini = iniparser_load(iniFile);
@@ -216,7 +212,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     {
         if (tds->maxShiftTime <= 0.0)
         {
-            log_errorF("%s: Max shift time must be positive\n", fcnm);
+            fprintf(stderr, "%s: Max shift time must be positive\n", __func__);
             ierr = 1;
             goto ERROR;
         }
@@ -225,7 +221,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     ntstar = iniparser_getint(ini, "tdSearch:gridSearch:ntstar\0", NTSTAR);
     if (ntstar < 1)
     {
-        log_errorF("%s: number of t*'s must be positive\n", fcnm);
+        fprintf(stderr, "%s: number of t*'s must be positive\n", __func__);
         ierr = 1;
         goto ERROR;
     }
@@ -233,7 +229,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     ndepth = iniparser_getint(ini, "tdSearch:gridSearch:ndepths\0", NDEPTH);
     if (ndepth < 1)
     {
-        log_errorF("%s: number of depths must be positive\n", fcnm);
+        fprintf(stderr, "%s: number of depths must be positive\n", __func__);
         ierr = 1;
         goto ERROR;
     }
@@ -242,7 +238,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     depth1 = iniparser_getdouble(ini, "tdSearch:gridSearch:depth1\0", DEPTH1);
     if (depth0 >= depth1)
     {
-        log_errorF("%s: depth0 >= depth1 is invalid\n", fcnm);
+        fprintf(stderr, "%s: depth0 >= depth1 is invalid\n", __func__);
         ierr = 1;
         goto ERROR;
     }
@@ -251,7 +247,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
     tstar1 = iniparser_getdouble(ini, "tdSearch:gridSearch:tstar1\0", TSTAR1);
     if (tstar0 >= tstar1)
     {
-        log_errorF("%s: tstar0 >= tstar1 is invalid\n", fcnm);
+        fprintf(stderr, "%s: tstar0 >= tstar1 is invalid\n", __func__);
         ierr = 1;
         goto ERROR;
     }
@@ -261,7 +257,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
                                                tds);
     if (ierr != 0)
     {
-        log_errorF("%s: Error defining t* grid\n", fcnm);
+        fprintf(stderr, "%s: Error defining t* grid\n", __func__);
         goto ERROR;
     }
     ierr = tdsearch_gridSearch_defineDepthGrid(ndepth,
@@ -269,7 +265,7 @@ int tdsearch_gridSearch_initializeFromFile(const char *iniFile,
                                                tds);
     if (ierr != 0)
     {
-        log_errorF("%s: Error defining depth grid\n", fcnm);
+        fprintf(stderr, "%s: Error defining depth grid\n", __func__);
         goto ERROR;      
     }
 ERROR:;
@@ -357,7 +353,6 @@ int tdsearch_gridSearch_setForwardModelingMatrices(
     const struct tdSearchGreens_struct grns,
     struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdsearch_gridSearch_setForwardModelingMatrices\0";
     double *G, *Gxc, *work;
     int *grnsMatrixPtr, *grnsXCMatrixPtr, indices[6],
         i, idep, idt, ierr, indx, it, jndx, kndx,
@@ -374,26 +369,26 @@ int tdsearch_gridSearch_setForwardModelingMatrices(
     {
         if (ndepth != tds->ndepth)
         {
-            log_errorF("%s: Error ndepth %d != tds->ndepth %d\n",
-                       fcnm, ndepth, tds->ndepth);
+            fprintf(stderr, "%s: Error ndepth %d != tds->ndepth %d\n",
+                    __func__, ndepth, tds->ndepth);
         }
         if (ntstar != tds->ntstar)
         {
-            log_errorF("%s: Error ntstar %d != tds->ntstar %d\n",
-                       fcnm, ntstar, tds->ntstar);
+            fprintf(stderr, "%s: Error ntstar %d != tds->ntstar %d\n",
+                    __func__, ntstar, tds->ntstar);
         }
         return -1;
     }
     npts = data.obs[iobs].npts;
     if (npts < 1)
     {
-        log_errorF("%s: Error data has no points\n", fcnm);
+        fprintf(stderr, "%s: Error data has no points\n", __func__);
         return -1;
     }
     tds->dnorm = cblas_dnrm2(npts, data.obs[iobs].data, 1);
     if (fabs(tds->dnorm) < DBL_EPSILON)
     {
-        log_errorF("%s: Error - data is identically zero\n", fcnm);
+        fprintf(stderr, "%s: Error - data is identically zero\n", __func__);
         return -1;
     } 
     tds->npts = npts;
@@ -414,7 +409,7 @@ int tdsearch_gridSearch_setForwardModelingMatrices(
                                                              indices);
             if (ierr != 0)
             {
-                log_errorF("%s: Failed to get indices\n", fcnm);
+                fprintf(stderr, "%s: Failed to get indices\n", __func__);
                 return -1;
             }
             // Compute the cross-correlation length at (dep, t*)
@@ -426,7 +421,7 @@ int tdsearch_gridSearch_setForwardModelingMatrices(
                 npgrns = grns.grns[indx].npts;
                 if (npgrns < 1)
                 {
-                    log_errorF("%s: Error - no points in grns fn\n", fcnm);
+                    fprintf(stderr, "%s: Error - no points in grns fn\n", __func__);
                     return -1;
                 }
                 lxc = npgrns + npts - 1;
@@ -439,7 +434,7 @@ int tdsearch_gridSearch_setForwardModelingMatrices(
                 }
                 if (lxc != lxc0)
                 {
-                    log_errorF("%s: Inconsistent column sizes\n", fcnm);
+                    fprintf(stderr, "%s: Inconsistent column sizes\n", __func__);
                     return -1;
                 }
             }
@@ -447,7 +442,7 @@ int tdsearch_gridSearch_setForwardModelingMatrices(
     }
     if (lxcMax < 1)
     {
-        log_errorF("%s: Error - cross-correlations are empty\n", fcnm);
+        fprintf(stderr, "%s: Error - cross-correlations are empty\n", __func__);
         return -1;
     }
     // Set the forward modeling matrices
@@ -509,12 +504,11 @@ int tdsearch_gridSearch_setForwardModelingMatrices(
 int tdSearch_gridSearch_setMomentTensor(const double *__restrict__ m6,
                                         struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdSearch_setMomentTensor\0";
     tds->lhaveMT = false;
     array_zeros64f_work(8, tds->mt); // NOTE - this is padded
     if (m6 == NULL)
     {
-        log_errorF("%s: Error moment tensor cannot be NULL\n", fcnm);
+        fprintf(stderr, "%s: Error moment tensor cannot be NULL\n", __func__);
         return -1;
     }
     array_copy64f_work(6, m6, tds->mt);
@@ -528,7 +522,6 @@ int tdSearch_gridSearch_setMomentTensorFromElements(
     const enum compearthCoordSystem_enum basis,
     struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdSearch_gridSearch_setMomentTensorFromElements\0";
     double mt[6], mtNED[6];
     int ierr;
     tds->lhaveMT = false;
@@ -541,13 +534,13 @@ int tdSearch_gridSearch_setMomentTensorFromElements(
     ierr = compearth_convertMT(1, basis, CE_NED, mt, mtNED);
     if (ierr != 0)
     {
-        printf("%s: Failed to set moment tensor\n", fcnm);
+        printf("%s: Failed to set moment tensor\n", __func__);
         return -1;
     }
     ierr = tdSearch_gridSearch_setMomentTensor(mtNED, tds);
     if (ierr != 0)
     {
-        printf("%s: Failed to set moment tensor\n", fcnm);
+        printf("%s: Failed to set moment tensor\n", __func__);
         return -1;
     }
     return 0;
@@ -557,7 +550,6 @@ int tdSearch_gridSearch_setMomentTensorFromEvent(
     const struct tdSearchEventParms_struct event,
     struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdSearch_gridSearch_setMomentTensorFromEvent\0";
     int ierr;
     ierr = tdSearch_gridSearch_setMomentTensorFromElements(
                     event.m11, event.m22, event.m33,
@@ -565,7 +557,7 @@ int tdSearch_gridSearch_setMomentTensorFromEvent(
                     event.basis, tds);
     if (ierr != 0)
     {
-        log_errorF("%s: Error setting moment tensor\n", fcnm);
+        fprintf(stderr, "%s: Error setting moment tensor\n", __func__);
         return -1;
     }
     return 0;
@@ -573,7 +565,6 @@ int tdSearch_gridSearch_setMomentTensorFromEvent(
 //============================================================================//
 int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds)
 {
-    const char *fcnm = "tdSearch_gridSearch_performGridSearch\0";
     double *u, *ud, dnorm, unorm;
     int id, idt, indx, iopt, it, jndx, l1, l2, lxc, maxlags,
         ndepth, ndt, nlag, npgrns, nrows, ntstar;
@@ -591,13 +582,13 @@ int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds)
     // Some easy checks
     if (!tds->lhaveMT)
     {
-        log_errorF("%s: Error moment tensor not set\n", fcnm);
+        fprintf(stderr, "%s: Error moment tensor not set\n", __func__);
         return -1;
     }
     if (tds->G == NULL || tds->Gxc == NULL ||
         tds->grnsMatrixPtr == NULL || tds->grnsXCMatrixPtr == NULL)
     {
-        log_errorF("%s: You need to set the forward modeling matrices\n", fcnm);
+        fprintf(stderr, "%s: You need to set the forward modeling matrices\n", __func__);
         return -1;
     }
     maxlags =-1;
@@ -666,7 +657,7 @@ getchar();
     tds->itopt = iopt - tds->idopt*tds->ntstar;
     if (tdsearch_gridSearch_gridToIndex(tds->itopt, tds->idopt, *tds) != iopt)
     {
-        log_warnF("%s: Switching to slow optimum computation\n", fcnm);
+        fprintf(stdout, "%s: Switching to slow optimum computation\n", __func__);
         for (id=0; id<ndepth; id++)
         {
             for (it=0; it<ntstar; it++)
@@ -685,19 +676,18 @@ getchar();
 int tdsearch_gridSearch_writeHeatMap(const char *dirnm, const char *froot,
                                      const struct tdSearch_struct tds)
 {
-    const char *fcnm = "tdsearch_gridSearch_writeHeatMap\0";
     FILE *ofl;
     char fname[PATH_MAX], fgnu[PATH_MAX], cmd[256];
     int id, idt, it;
     memset(fname, 0, PATH_MAX*sizeof(char));
     if (!tds.xcorr || !tds.lags)
     {
-        log_errorF("%s: Error gridsearch likely not performed\n", fcnm);
+        fprintf(stderr, "%s: Error gridsearch likely not performed\n", __func__);
         return -1;
     }
     if (!tds.tstar || !tds.depths)
     {
-        log_errorF("%s: Error tds likely not initialized\n", fcnm);
+        fprintf(stderr, "%s: Error tds likely not initialized\n", __func__);
         return -1;
     }
     if (dirnm != NULL)
@@ -758,25 +748,24 @@ int tdSearch_gridSearch_makeSACSynthetic(
     const struct tdSearch_struct tds,
     struct sacData_struct *synth)
 {
-    const char *fcnm = "tdSearch_gridSearch_getSynthetic\0";
     double epoch;
     int idt, ierr, igrns, npGrns;
     memset(synth, 0, sizeof(struct sacData_struct));
     // Pick off the header
     if (it < 0 || it >= tds.ntstar || id < 0 || id >= tds.ndepth)
     {
-        log_errorF("%s: Invalid (t*,depth) index (%d,%d)\n", fcnm, it, id);
+        fprintf(stderr, "%s: Invalid (t*,depth) index (%d,%d)\n", __func__, it, id);
         return - 1;
     }
     if (tds.synthetic == NULL || tds.lags == NULL)
     {
         if (tds.synthetic == NULL)
         {
-            log_errorF("%s: Error tds.synethetic is NULL\n", fcnm);
+            fprintf(stderr, "%s: Error tds.synethetic is NULL\n", __func__);
         }
         if (tds.lags == NULL)
         {
-            log_errorF("%s: Error tds.lags is NULL\n", fcnm);
+            fprintf(stderr, "%s: Error tds.lags is NULL\n", __func__);
         }
         return -1;
     }
@@ -785,7 +774,7 @@ int tdSearch_gridSearch_makeSACSynthetic(
                                                    it, id, grns);
     if (idt < 0 || igrns < 0)
     {
-        log_errorF("%s: Failed getting an index\n", fcnm);
+        fprintf(stderr, "%s: Failed getting an index\n", __func__);
         return -1;
     }
     // Copy header
@@ -796,7 +785,7 @@ int tdSearch_gridSearch_makeSACSynthetic(
     npGrns = tds.grnsMatrixPtr[idt+1] - tds.grnsMatrixPtr[idt];
     if (npGrns != synth->npts)
     {
-        log_errorF("%s: Size mismatch\n", fcnm);
+        fprintf(stderr, "%s: Size mismatch\n", __func__);
         sacio_free(synth);
         return -1; 
     }
@@ -809,7 +798,7 @@ int tdSearch_gridSearch_makeSACSynthetic(
     ierr = sacio_getEpochalStartTime(synth->header, &epoch);
     if (ierr != 0)
     {
-        log_errorF("%s: Failed to get start time\n", fcnm);
+        fprintf(stderr, "%s: Failed to get start time\n", __func__);
         return -1;
     }
     epoch = epoch + (double) tds.lags[idt]*tds.dt;

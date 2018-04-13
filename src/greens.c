@@ -14,7 +14,6 @@
 #include "tdsearch_hudson.h"
 #include "ispl/process.h"
 #include "iscl/array/array.h"
-#include "iscl/log/log.h"
 #include "iscl/fft/fft.h"
 #include "iscl/memory/memory.h"
 #include "iscl/os/os.h"
@@ -45,7 +44,6 @@ int tdsearch_greens_setPreprocessingCommandsFromIniFile(
     const int nobs,  
     struct tdSearchGreens_struct *grns)
 {
-    const char *fcnm = "tdsearch_greens_setPreprocessingCommandsFromIniFile\0";
     dictionary *ini;
     char **cmds;
     const char *s;
@@ -57,7 +55,8 @@ int tdsearch_greens_setPreprocessingCommandsFromIniFile(
     if (grns->nobs < 1){return 0;}
     if (!os_path_isfile(iniFile))
     {
-        log_errorF("%s: Error ini file %s doesn't exist\n", fcnm, iniFile);
+        fprintf(stderr, "%s: Error ini file %s doesn't exist\n",
+                __func__, iniFile);
         return -1;
     }
     ini = iniparser_load(iniFile);
@@ -126,14 +125,13 @@ int tdsearch_greens_attachCommandsToGreens(const int iobs, const int ncmds,
                                            const char **cmds,
                                            struct tdSearchGreens_struct *grns)
 {
-    const char *fcnm = "tdsearch_greens_attachCommandsToGreens\0";
     int i;
     size_t lenos;
     // Make sure iobs is in bounds 
     if (iobs < 0 || iobs >= grns->nobs)
     {    
-        log_errorF("%s: Error iobs is out of bounds [0,%d]\n",
-                   fcnm, iobs, grns->nobs);
+        fprintf(stderr, "%s: Error iobs=%d is out of bounds [0,%d]\n",
+                __func__, iobs, grns->nobs);
         return -1;      
     }        
     // Try to handle space allocation if not already done
@@ -145,7 +143,7 @@ int tdsearch_greens_attachCommandsToGreens(const int iobs, const int ncmds,
     }    
     if (grns->cmds == NULL)
     {    
-        log_errorF("%s: Error grns->cmds is NULL\n", fcnm);
+        fprintf(stderr, "%s: Error grns->cmds is NULL\n", __func__);
         return -1;
     }
     if (ncmds == 0){return 0;}
@@ -186,13 +184,13 @@ int tdsearch_greens_getGreensFunctionIndex(
     const int iobs, const int itstar, const int idepth,
     const struct tdSearchGreens_struct grns)
 {
-    const char *fcnm = "tdsearch_greens_getGreensFunctionIndex\0";
     int igx, indx;
     indx =-1;
     igx = (int) GMT_TERM - 1;
     if (igx < 0 || igx > 5)
     {
-        log_errorF("%s: Can't classify Green's functions index\n", fcnm);
+        fprintf(stderr, "%s: Can't classify Green's functions index\n",
+                __func__);
         return indx;
     }
     indx = iobs*(6*grns.ntstar*grns.ndepth)
@@ -201,7 +199,8 @@ int tdsearch_greens_getGreensFunctionIndex(
          + igx;
     if (indx >= grns.ngrns)
     {
-        log_warnF("%s: indx out of bounds - segfault is coming\n", fcnm);
+        fprintf(stdout, "%s: indx out of bounds - segfault is coming\n",
+                __func__);
         return -1;
     }
     return indx;
@@ -334,7 +333,6 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                      const struct tdSearchHudson_struct ffGrns,
                                      struct tdSearchGreens_struct *grns)
 {
-    const char *fcnm = "tdsearch_greens_ffGreenToGreens\0";
     char knetwk[8], kstnm[8], kcmpnm[8], khole[8], phaseName[8],
          phaseNameGrns[8];
     double az, baz, cmpaz, cmpinc, cmpincSEED, dt0, epoch, epochNew,
@@ -362,7 +360,7 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
     grns->ngrns = 6*grns->ntstar*grns->ndepth*grns->nobs;
     if (grns->ngrns < 1)
     {
-        log_errorF("%s: Error grns is empty\n", fcnm);
+        fprintf(stderr, "%s: Error grns is empty\n", __func__);
         return -1;
     }
     grns->grns = (struct sacData_struct *)
@@ -399,7 +397,7 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                              data.obs[iobs].header, &stel);
         if (ierr != 0)
         {
-            log_errorF("%s: Error reading header variables\n", fcnm);
+            fprintf(stderr, "%s: Error reading header variables\n", __func__);
             break;
         }
         // Station location code is not terribly important
@@ -409,13 +407,13 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
         ierr = sacio_getEpochalStartTime(data.obs[iobs].header, &epoch);
         if (ierr != 0)
         {
-            log_errorF("%s: Error getting start time\n", fcnm);
+            fprintf(stderr, "%s: Error getting start time\n", __func__);
             break;
         }
         ierr += getPrimaryArrival(data.obs[iobs].header, &pickTime, phaseName);
         if (ierr != 0)
         {
-            log_errorF("%s: Error getting primary pick\n", fcnm);
+            fprintf(stderr, "%s: Error getting primary pick\n", __func__);
             break;
         }
         // Need to figure out the component
@@ -434,7 +432,8 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
         }
         else
         {
-            log_errorF("%s: Can't classify component: %s\n", fcnm, kcmpnm);
+            fprintf(stderr, "%s: Can't classify component: %s\n",
+                    __func__, kcmpnm);
         }
         // Process all Green's functions in this block
         for (id=0; id<ffGrns.ndepth; id++)
@@ -449,8 +448,8 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                   &pickTimeGrns, phaseNameGrns);
                 if (strcasecmp(phaseNameGrns, phaseName) != 0)
                 {
-                    log_warnF("%s: Phase name mismatch %s %s\n",
-                              fcnm, phaseName, phaseNameGrns);
+                    fprintf(stdout, "%s: Phase name mismatch %s %s\n",
+                            __func__, phaseName, phaseNameGrns);
                 }
                 npts = ffGrns.grns[kndx].npts;
                 indx = tdsearch_greens_getGreensFunctionIndex(G11_GRNS,
@@ -532,7 +531,8 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
                                                   grns->grns[indx+5].data);
                 if (ierr != 0)
                 {
-                    log_errorF("%s: Failed to rotate Greens functions\n", fcnm);
+                    fprintf(stderr, "%s: Failed to rotate Greens functions\n",
+                            __func__);
                 }
                 // Fix the characteristic magnitude scaling in CPS 
                 for (i=0; i<6; i++)
@@ -570,7 +570,6 @@ int tdsearch_greens_repickGreensWithSTALTA(
     const int iobs, const int itstar, const int idepth,
     struct tdSearchGreens_struct *grns)
 {
-    const char *fcnm = "tdsearch_greens_repickGreensWithSTALTA\0";
     struct stalta_struct stalta;
     double *charFn, *g, *Gxx, *Gyy, *Gzz, *Gxy, *Gxz, *Gyz,
            *gxxPad, *gyyPad, *gzzPad, *gxyPad, *gxzPad, *gyzPad,
@@ -581,15 +580,16 @@ int tdsearch_greens_repickGreensWithSTALTA(
     memset(&stalta, 0, sizeof(struct stalta_struct));
     if (lta < sta || sta < 0.0)
     {
-        if (lta < sta){log_errorF("%s: Error lta < sta\n", fcnm);}
-        if (sta < 0.0){log_errorF("%s: Error sta is negative\n", fcnm);}
+        if (lta < sta){fprintf(stderr,"%s: Error lta < sta\n", __func__);}
+        if (sta < 0.0){fprintf(stderr,"%s: Error sta is negative\n", __func__);}
         return -1;
     }
     ierr = tdsearch_greens_getGreensFunctionsIndices(iobs, itstar, idepth,
                                                      *grns, indices);
     if (ierr != 0)
     {
-        log_errorF("%s: Failed to get Greens functions indicies\n", fcnm);
+        fprintf(stderr, "%s: Failed to get Greens functions indicies\n",
+                 __func__);
         return -1;
     }
     ierr = sacio_getIntegerHeader(SAC_INT_NPTS,
@@ -598,12 +598,12 @@ int tdsearch_greens_repickGreensWithSTALTA(
     {
         if (ierr != 0)
         {
-            log_errorF("%s: Error getting number of points from header\n",
-                       fcnm);
+            fprintf(stderr, "%s: Error getting number of points from header\n",
+                    __func__);
         }
         else
         {
-            log_errorF("%s: ERror no data points\n", fcnm);
+            fprintf(stderr, "%s: ERror no data points\n", __func__);
         }
         return -1;
     }
@@ -611,8 +611,8 @@ int tdsearch_greens_repickGreensWithSTALTA(
                                 grns->grns[indices[0]].header, &dt);
     if (ierr != 0 || dt <= 0.0)
     {
-        if (ierr != 0){log_errorF("%s: failed to get dt\n", fcnm);}
-        if (dt <= 0.0){log_errorF("%s: invalid sampling period\n", fcnm);}
+        if (ierr != 0){fprintf(stderr, "%s: failed to get dt\n", __func__);}
+        if (dt <= 0.0){fprintf(stderr, "%s: invalid sampling period\n", __func__);}
         return -1;
     }
     // Define the windows
@@ -680,25 +680,25 @@ int tdsearch_greens_repickGreensWithSTALTA(
         ierr = stalta_setShortAndLongTermAverage(nsta, nlta, &stalta);
         if (ierr != 0)
         {
-            printf("%s: Error setting STA/LTA\n", fcnm);
+            printf("%s: Error setting STA/LTA\n", __func__);
             break;
         }
         ierr = stalta_setData64f(npad, g, &stalta);
         if (ierr != 0)
         {
-            printf("%s: Error setting data\n", fcnm);
+            printf("%s: Error setting data\n", __func__);
             break;
         }
         ierr = stalta_applySTALTA(&stalta);
         if (ierr != 0)
         {
-            printf("%s: Error applying STA/LTA\n", fcnm);
+            printf("%s: Error applying STA/LTA\n", __func__);
             break;
         }
         ierr = stalta_getData64f(stalta, npad, &nwork, g);
         if (ierr != 0)
         {
-            printf("%s: Error getting result\n", fcnm);
+            printf("%s: Error getting result\n", __func__);
             break;
         }
         cblas_daxpy(npad, 1.0, g, 1, charFn, 1);
@@ -755,7 +755,6 @@ int tdsearch_greens_modifyProcessingCommands(
     const double cut0, const double cut1, const double targetDt,
     struct tdSearchGreens_struct *grns)
 {
-    const char *fcnm = "tdsearch_greens_modifyProcessingCommands\0";
     struct tdSearchModifyCommands_struct options;
     const char **cmds;
     char **newCmds;
@@ -783,7 +782,7 @@ int tdsearch_greens_modifyProcessingCommands(
                                                    grns->grns[kndx1], &ierr);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to set processing commands\n", fcnm);
+            fprintf(stderr, "%s: Failed to set processing commands\n", __func__);
             goto ERROR;
         }
         // Expand the processing commands 
@@ -830,7 +829,6 @@ ERROR:;
  */
 int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
 {
-    const char *fcnm = "tdsearch_greens_process\0";
     double *data;
     struct serialCommands_struct commands;
     struct parallelCommands_struct parallelCommands;
@@ -864,7 +862,7 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
                                       &commands);
                 if (ierr != 0)
                 {
-                    log_errorF("%s: Error setting serial command string\n", fcnm);
+                    fprintf(stderr, "%s: Error setting serial command string\n", __func__);
                     goto ERROR;
                 }
                 // Determine some characteristics of the processing
@@ -911,7 +909,7 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
                                               &data[dataPtr[i]]);
                     if (ierr != 0)
                     {
-                         log_errorF("%s: Failed to copy data\n", fcnm);
+                         fprintf(stderr, "%s: Failed to copy data\n", __func__);
                          goto ERROR;
                     }
                 }
@@ -920,13 +918,13 @@ int tdsearch_greens_process(struct tdSearchGreens_struct *grns)
                                                           &parallelCommands);
                 if (ierr != 0)
                 {
-                    log_errorF("%s: Failed to set data\n", fcnm);
+                    fprintf(stderr, "%s: Failed to set data\n", __func__);
                     goto ERROR;
                 }
                 ierr = process_applyParallelCommands(&parallelCommands);
                 if (ierr != 0)
                 {
-                    log_errorF("%s: Failed to process data\n", fcnm);
+                    fprintf(stderr ,"%s: Failed to process data\n", __func__);
                     goto ERROR;
                 }
                 // Get the data
@@ -1017,7 +1015,6 @@ int tdsearch_greens_writeSelectGreensFunctions(
     const int iobs, const int itstar, const int idepth,
     const struct tdSearchGreens_struct grns) 
 {
-    const char *fcnm = "tdsearch_greens_writeSelectGreensFunctions\0";
     char fileName[PATH_MAX], rootName[PATH_MAX];
     size_t lenos;
     int i, ierr, indx;
@@ -1044,8 +1041,8 @@ int tdsearch_greens_writeSelectGreensFunctions(
         ierr = os_makedirs(rootName);
         if (ierr != 0)
         {
-            log_errorF("%s: Failed to make output directory %s\n",
-                       fcnm, rootName);
+            fprintf(stderr, "%s: Failed to make output directory %s\n",
+                    __func__, rootName);
             return -1;
         }
     }
@@ -1055,7 +1052,7 @@ int tdsearch_greens_writeSelectGreensFunctions(
                                                    grns);
     if (indx < 0)
     {
-        log_errorF("%s: Invalid index\n", fcnm);
+        fprintf(stderr, "%s: Invalid index\n", __func__);
         return -1;
     }
     for (i=0; i<6; i++)
@@ -1074,7 +1071,6 @@ int tdsearch_greens_writeSelectGreensFunctions(
 static int getPrimaryArrival(const struct sacHeader_struct hdr,
                              double *time, char phaseName[8])
 {
-    const char *fcnm = "getPrimaryArrival\0";
     const enum sacHeader_enum timeVars[11]
        = {SAC_FLOAT_A,
           SAC_FLOAT_T0, SAC_FLOAT_T1, SAC_FLOAT_T2, SAC_FLOAT_T3,
@@ -1093,7 +1089,7 @@ static int getPrimaryArrival(const struct sacHeader_struct hdr,
         ifound2 = sacio_getCharacterHeader(timeVarNames[i], hdr, phaseName); 
         if (ifound1 == 0 && ifound2 == 0){return 0;}
     }
-    printf("%s: Failed to get primary pick\n", fcnm);
+    printf("%s: Failed to get primary pick\n", __func__);
     *time =-12345.0;
     memset(phaseName, 0, 8*sizeof(char));
     strcpy(phaseName, "-12345"); 

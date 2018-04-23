@@ -1,6 +1,7 @@
 #ifndef TDSEARCH_H__
 #define TDSEARCH_H__ 1
 
+#include "tdsearch_config.h"
 #include "tdsearch_struct.h"
 #include "tdsearch_commands.h"
 #include "tdsearch_data.h"

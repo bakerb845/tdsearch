@@ -850,16 +850,19 @@ int tdsearch_gridSearch_writeHeatMap(const char *dirnm, const char *froot,
 }
 //============================================================================//
 /*!
- * @brief Writes a shifted synthetic seismogram corresponding to the 
+ * @brief Makes a shifted synthetic seismogram corresponding to the 
  *        given observation, t*, and depth.
  *  
- * @param[in] iobs   Observation index in the range [0,nobs-1].
- * @param[in] it     t* index in the range [0,tds.ntstar-1].
- * @param[in] id     Depth index in the range [0,tds.ndepth].
- * @param[in] data   Contains the observed seismograms.
- * @param[in] grns   Contains the Green's functions used to make the synthetics.
- * @param[in] tds    Contains the time lags computed in the grid search.
+ * @param[in] iobs    Observation index in the range [0,nobs-1].
+ * @param[in] it      t* index in the range [0,tds.ntstar-1].
+ * @param[in] id      Depth index in the range [0,tds.ndepth].
+ * @param[in] data    Contains the observed seismograms.
+ * @param[in] grns    Contains the Green's functions used to make
+ *                    the synthetic seisogram.
+ * @param[in] tds     Contains the time lags computed in the grid search.
  *
+ * @param[out] synth  Structure containing the synthetic seismogram.
+
  * @result 0 indicates success.
  *                    
  * @ingroup tdsearch_gridsearch

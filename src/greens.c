@@ -38,7 +38,7 @@ static int getPrimaryArrival(const struct sacHeader_struct hdr,
  *
  * @ingroup tdsearch_greens 
  *
- * @TODO Add an option to read a processing list file.
+ * @bug Add an option to read a processing list file.
  *
  */
 int tdsearch_greens_setPreprocessingCommandsFromIniFile(

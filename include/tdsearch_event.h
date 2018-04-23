@@ -2,6 +2,11 @@
 #define TDSEARCH_EVENT_H__ 1
 #include "tdsearch_struct.h"
 
+/*!
+ * @brief Functions for reading the event information.
+ * @defgroup tdsearch_event Event Information
+ */
+
 #ifdef __cplusplus
 extern "C"
 {

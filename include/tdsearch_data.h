@@ -2,6 +2,11 @@
 #define TDSEARCH_DATA_H__ 1
 #include "tdsearch_struct.h"
 
+/*!
+ * @brief Functions for data input/output, data processing, and data
+ *        configuration.
+ * @defgroup tdsearch_data Data
+ */
 #ifdef __cplusplus
 extern "C"
 {

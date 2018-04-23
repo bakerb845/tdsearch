@@ -29,6 +29,8 @@
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_data
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -71,7 +73,7 @@ DONE:;
     iniparser_freedict(ini);
     return 0;
 }
-                                  
+//============================================================================//
 /*!
  * @brief Reads the default sampling period and window information for the
  *        estimation.
@@ -84,6 +86,8 @@ DONE:;
  * @param[out] cutEnd     Default end window time (s) relative to first arrival.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_data
  *
  * @author Ben Baker, ISTI
  *
@@ -122,6 +126,7 @@ int tdsearch_data_getDefaultDTAndWindowFromIniFile(const char *iniFile,
     iniparser_freedict(ini);
     return 0;
 }
+//============================================================================//
 /*!
  * @brief Reads the data and pole-zero files from the list specified in the
  *        an ini file.
@@ -131,6 +136,8 @@ int tdsearch_data_getDefaultDTAndWindowFromIniFile(const char *iniFile,
  * @param[out] data       On successful exit contains the input data.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_data
  *
  * @author Ben Baker, ISTI
  *
@@ -358,6 +365,8 @@ ERROR:;
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_data
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -433,6 +442,8 @@ int tdsearch_data_setPicks(const char *ttimesDir,
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_data
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -481,6 +492,8 @@ int tdsearch_data_attachCommandsToObservation(const int iobs,
  *                     data have been set to 0 or NULL.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_data
  *
  * @author Ben Baker, ISTI
  *
@@ -537,6 +550,8 @@ int tdsearch_data_free(struct tdSearchData_struct *data)
  *                      pole-zero data.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_data
  *
  * @author Ben Baker, ISTI
  *
@@ -616,6 +631,8 @@ int tdsearch_data_readFiles(const int nfiles,
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_data
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -678,6 +695,8 @@ int tdsearch_data_setEventInformation(const double evla,
  *                      is out of the distance bounds.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_data
  *
  * @author Ben Baker, ISTI
  *
@@ -742,6 +761,8 @@ int tdsearch_data_verifyDistances(const double dmin, const double dmax,
  *
  * @result 0 indicates success.
  * 
+ * @ingroup tdsearch_data
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -824,6 +845,8 @@ int tdsearch_data_computeTheoreticalPPickTimes(
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_data
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -882,17 +905,22 @@ ERROR:;
  *
  * @param[in] iodva       Desired units that should be consistent
  *                        with forward modeling.  
- *                         iodva = 0 -> deconvolve to displacment.
- *                         iodva = 1 -> deconvolve to velocity.
- *                         iodva = 2 -> deconvolve to acceleration.
+ * @param[in] iodva       iodva = 0 means that the data will be deconvolved
+ *                        to displacement.
+ * @param[in] iodva       iodva = 1 means that the data will be deconvolved
+ *                        to velocity.
+ * @param[in] iodva       iodva = 2 means that the data will be deconvolved
+ *                        to acceleration.
  * @param[in] cut0        Time relative to pick to begin cut (seconds).
  * @param[in] cut1        Time relative to pick to end cut (seconds).
  * @param[in] targetDt    Target sampling period (seconds).
  * @param[in,out] data    On input contains the data and processing commands.
- *                        On output the generic processing commands have
+ * @param[in,out] data    On output the generic processing commands have
  *                        been modified so that they are parsable by ispl.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_data
  *
  * @author Ben Baker, ISTI
  *
@@ -942,6 +970,23 @@ int tdsearch_data_modifyProcessingCommands(
     return ierr;
 }
 //============================================================================//
+/*!
+ * @brief Writes the observed seismograms to:
+ *        outdir/NETWORK.STATION.CHANNEL.COMPONENT.SUFFIX.SAC
+ *
+ * @param[in] outdir    Name of output directory.  If NULL then data will
+ *                      be written to the current working directory.
+ * @param[in] suffix    Suffix to append to the SNCL.  
+ *                      If NULL then this will be ignored. 
+ * @param[in] data      Contains the time series to be written to disk.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_data
+ *
+ * @author Ben Baker
+ *
+ */
 int tdsearch_data_writeFiles(const char *outdir,
                              const char *suffix,
                              const struct tdSearchData_struct data)
@@ -1008,6 +1053,18 @@ int tdsearch_data_writeFiles(const char *outdir,
 /*!
  * @brief Processes the data according to the commands on the data data
  *        structure.
+ *
+ * @param[in,out] data    On input contains the data and the data processing
+ *                        commands.
+ * @param[in,out] data    On exit, the data has been processed according to
+ *                        the processing commands.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_data
+ *
+ * @author Ben Baker
+ *
  */
 int tdsearch_data_process(struct tdSearchData_struct *data)
 {

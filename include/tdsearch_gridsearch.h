@@ -2,6 +2,12 @@
 #define TDSEARCH_GRIDSEARCH_H__ 1
 #include "tdsearch_struct.h"
 
+/*!
+ * @brief Functions for configuring and applying the
+ *        cross-correlation-based grid search.
+ * @defgroup tdsearch_gridsearch Grid Search
+ */
+
 #ifdef __cplusplus
 extern "C"
 {

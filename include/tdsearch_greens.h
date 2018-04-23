@@ -2,6 +2,11 @@
 #define TDSEARCH_GREENS_H__ 1
 #include "tdsearch_struct.h"
 
+/*!
+ * @brief Green's function configuration and generation.
+ * @defgroup tdsearch_greens Green's Functions
+ */
+
 #ifdef __cplusplus
 extern "C"
 {

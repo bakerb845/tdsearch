@@ -39,6 +39,8 @@
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_gridsearch
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -70,6 +72,8 @@ int tdsearch_gridSearch_setDefaults(struct tdSearch_struct *tds)
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_gridsearch
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -98,6 +102,8 @@ int tdsearch_gridSearch_free(struct tdSearch_struct *tds)
  * @param[out] tds       Grid search structure with t* grid.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_gridsearch
  *
  * @author Ben Baker, ISTI
  *
@@ -143,6 +149,8 @@ int tdsearch_gridSearch_defineTstarGrid(const int ntstars, const double tstar0,
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_gridsearch
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -185,6 +193,8 @@ int tdsearch_gridSearch_defineDepthGrid(const int ndepths, const double depth0,
  * @param[out] tds       On successful exit contains the grid search parameters.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_gridsearch
  *
  * @author Ben Baker, ISTI
  *
@@ -280,6 +290,8 @@ ERROR:;
  *
  * @result The number of t*'s in the grid search.
  *
+ * @ingroup tdsearch_gridsearch
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -313,6 +325,8 @@ int tdsearch_gridSearch_getNumberOfDepths(const struct tdSearch_struct tds)
  *
  * @result The grid search index (= id*ntstar + it).
  *
+ * @ingroup tdsearch_gridsearch
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -335,6 +349,8 @@ int tdsearch_gridSearch_gridToIndex2(const int it, const int id,
  *
  * @result The grid search index (= id*tds.ntstar + it).
  *
+ * @ingroup tdsearch_gridsearch
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -347,6 +363,27 @@ int tdsearch_gridSearch_gridToIndex(const int it, const int id,
     return idt;
 }
 //============================================================================//
+/*!
+ * @brief Computes the forward modeling matrix, G, so that estimates, e, can
+ *        can be efficiently generated via \f$ G m = e \f$ for any moment
+ *        tensor, m.  The columns of G represent cross-correlations of the
+ *        Green's functions corresponding to the \f$ m_{ij} \f$ moment tensor
+ *        component so that the estimate, e, is a cross-correlogram.
+ *
+ * @param[in] iobs     Observation index in the range [0,nobs-1].
+ * @param[in] data     Structure containing the data.
+ * @param[in] grns     Structure containing the Green's functions.
+ *
+ * @param[in,out] tds  On input contains the initialized tds structure.
+ * @param[in,out] tds  On exit the forward modeling matrix G has been set.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_gridsearch
+ *
+ * @author Ben Baker, ISTI
+ *
+ */
 int tdsearch_gridSearch_setForwardModelingMatrices(
     const int iobs, 
     const struct tdSearchData_struct data,
@@ -498,6 +535,8 @@ int tdsearch_gridSearch_setForwardModelingMatrices(
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_gridsearch
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -516,6 +555,32 @@ int tdSearch_gridSearch_setMomentTensor(const double *__restrict__ m6,
     return 0;
 }
 //============================================================================//
+/*!
+ * @brief Sets the moment tensor elements on the grid search structure.
+ *
+ * @param[in] m11      m11 moment tensor in Newton meters.
+ * @param[in] m22      m22 moment tensor in Newton meters.
+ * @param[in] m33      m33 moment tensor in Newton meters.
+ * @param[in] m12      m12 moment tensor in Newton meters.
+ * @param[in] m13      m13 moment tensor in Newton meters.
+ * @param[in] m23      m23 moment tensor in Newton meters.
+ * @param[in] basis    The appropriate moment tensor basis.
+ * @param[in] basis    CE_USE indicates the moment tensor is in up, south
+ *                     east coordinates like what one would obtain from
+ *                     the GCMT catalog.
+ * @param[in] basis    CE_NED indicates the moment tensor is in north, east,
+ *                     down coordinates and is consistent with Programs in
+ *                     Seismology.
+ *
+ * @param[in,out] tds  On input contains the initialized grid search 
+ *                     structure.
+ * @param[in,out] tds  On exit contains the input moment tensor.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_gridsearch
+ *
+ */
 int tdSearch_gridSearch_setMomentTensorFromElements(
     const double m11, const double m22, const double m33,
     const double m12, const double m13, const double m23,
@@ -546,6 +611,18 @@ int tdSearch_gridSearch_setMomentTensorFromElements(
     return 0;
 }
 //============================================================================//
+/*!
+ * @brief Sets the moment tensor information from an event structure.
+ *
+ * @param[in] event    Contains the event on which the moment tensor is defined.
+ * @param[in,out] tds  On input this is the initialized grid search structure.
+ * @param[in,out] tds  On exit contains the given moment tensor.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_gridsearch
+ *
+ */
 int tdSearch_gridSearch_setMomentTensorFromEvent(
     const struct tdSearchEventParms_struct event,
     struct tdSearch_struct *tds)
@@ -563,6 +640,21 @@ int tdSearch_gridSearch_setMomentTensorFromEvent(
     return 0;
 }
 //============================================================================//
+/*!
+ * @brief Computes the cross-correlations between the data and synthetics
+ *        at each (t*,depth) in the grid search.
+ *
+ * @param[in,out] tds   On input contains the initialized grid search 
+ *                      structure with the Green's functions and source
+ *                      properties.
+ * @param[in,out] tds   On exit contains the result of the cross-correlations
+ *                      and lags at each (t*,depth) in the grid search.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_gridsearch
+ *
+ */
 int tdSearch_gridSearch_performGridSearch(struct tdSearch_struct *tds)
 {
     double *u, *ud, dnorm, unorm;
@@ -673,6 +765,22 @@ getchar();
     }
     return 0;
 }
+//============================================================================//
+/*!
+ * @brief Writes a map of the max of the cross-correlograms as a function
+ *        of t* and depth in a format useful for Gnpulot as well as a
+ *        corresponding Gnuplot plotting script.
+ *
+ * @param[in] dirnm   Directory where the heat map is to be written.
+ * @param[in] froot   The root name of the heat map.
+ * @param[in] tds     Grid search structure with the tabulated  
+ *                    cross-correlogram maximums.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_gridsearch
+ *
+ */
 int tdsearch_gridSearch_writeHeatMap(const char *dirnm, const char *froot,
                                      const struct tdSearch_struct tds)
 {
@@ -741,6 +849,21 @@ int tdsearch_gridSearch_writeHeatMap(const char *dirnm, const char *froot,
     return 0;
 }
 //============================================================================//
+/*!
+ * @brief Writes a shifted synthetic seismogram corresponding to the 
+ *        given observation, t*, and depth.
+ *  
+ * @param[in] iobs   Observation index in the range [0,nobs-1].
+ * @param[in] it     t* index in the range [0,tds.ntstar-1].
+ * @param[in] id     Depth index in the range [0,tds.ndepth].
+ * @param[in] data   Contains the observed seismograms.
+ * @param[in] grns   Contains the Green's functions used to make the synthetics.
+ * @param[in] tds    Contains the time lags computed in the grid search.
+ *
+ * @result 0 indicates success.
+ *                    
+ * @ingroup tdsearch_gridsearch
+ */
 int tdSearch_gridSearch_makeSACSynthetic(
     const int iobs, const int it, const int id,
     const struct tdSearchData_struct data,

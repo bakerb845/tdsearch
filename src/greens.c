@@ -36,6 +36,8 @@ static int getPrimaryArrival(const struct sacHeader_struct hdr,
  *
  * @author Ben Baker, ISTI
  *
+ * @ingroup tdsearch_greens 
+ *
  * @TODO Add an option to read a processing list file.
  *
  */
@@ -118,6 +120,8 @@ int tdsearch_greens_setPreprocessingCommandsFromIniFile(
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_greens
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -176,6 +180,8 @@ int tdsearch_greens_attachCommandsToGreens(const int iobs, const int ncmds,
  *         grns.grns corresponding to the desired 
  *         (iobs, idepth, itstar, G??_GRNS) coordinate.
  *
+ * @ingroup tdsearch_greens
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -223,6 +229,8 @@ int tdsearch_greens_getGreensFunctionIndex(
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_greens
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -251,6 +259,8 @@ int tdsearch_greens_getGreensFunctionsIndices(
  *                    0 or NULL.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_greens
  *
  * @author Ben Baker, ISTI
  *
@@ -325,6 +335,8 @@ int tdsearch_greens_free(struct tdSearchGreens_struct *grns)
  *                    and depth in the grid search for each observation.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_greens
  *
  * @author Ben Baker, ISTI
  *
@@ -562,6 +574,8 @@ int tdsearch_greens_ffGreensToGreens(const struct tdSearchData_struct data,
  *
  * @brief 0 indicates success.
  *
+ * @ingroup tdsearch_greens
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -749,6 +763,30 @@ int tdsearch_greens_repickGreensWithSTALTA(
 //============================================================================//
 /*!
  * @brief Modifies the Green's functions processing commands.
+ *
+ * @param[in] iodva     The output units for the hudson96 Green's functions.
+ * @param[in] iodva     0 indicates the Green's functions have units
+ *                      of displacement.
+ * @param[in] iodva     1 indicates the Green's functions have units
+ *                      of velocity.
+ * @param[in] iodva     2 indicates the Green's functions have units
+ *                      of acceleration.
+ * @param[in] cut0      The cut time in seconds relative to the pick time
+ *                      to begin the window around the arrival.
+ * @parma[in] cut1      The cut time in seconds relative to the pick time
+ *                      to end the window around the arrival.
+ * @param[in] targetDt  Desired sampling period in seconds to which the Green's
+ *                      functions should be resampled as to match the data.
+ *
+ * @param[in,out] grns  On input input contains the genreci Green's functions
+ *                      processing commands. 
+ * @param[in,out] grns  On exit the Green's functions processing have been
+ *                      made specific to the input Green's functions.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_greens
+ *
  */
 int tdsearch_greens_modifyProcessingCommands(
     const int iodva,
@@ -823,6 +861,8 @@ ERROR:;
  *                        for all observations, depths, and t*'s.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_greens
  *
  * @author Ben Baker, ISTI
  *
@@ -1010,6 +1050,23 @@ ERROR:;
     return 0;
 }
 //============================================================================//
+/*!
+ * @brief Writes the Green's functions corresponding to the iobs'th observation
+ *        for the given tstar, depth index.
+ *
+ * @param[in] dirnm    Directory name where the Green's functions should be
+ *                     written.  If this is NULL then the Green's functions
+ *                     will be written to the current working directory.
+ * @param[in] iobs     Observation index in the range [0,nobs-1].
+ * @param[in] itstar   The t* index in the range [0,ntstar-1].
+ * @param[in] idepth   The depth index in the range [0,ndepth-1].
+ * @param[in] grns     The structure containing the Green's functions.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_greens
+ *
+ */
 int tdsearch_greens_writeSelectGreensFunctions(
     const char *dirnm,
     const int iobs, const int itstar, const int idepth,

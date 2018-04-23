@@ -25,6 +25,8 @@
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_event
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -54,6 +56,8 @@ int tdsearch_event_setDefaults(struct tdSearchEventParms_struct *event)
  *                     moment tensor).
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_event
  *
  * @author Ben Baker, ISTI
  *

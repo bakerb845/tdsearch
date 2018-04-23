@@ -23,6 +23,8 @@ static int grd2ijk(const int igrd,
  *
  * @result 0 indicates success.
  *
+ * ingroup tdsearch_hudson
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -106,6 +108,8 @@ int tdsearch_hudson_readHudson96Parameters(const char *iniFile,
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_hudson
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -182,6 +186,8 @@ int tdsearch_hudson_readHpulse96Parameters(const char *iniFile,
  *                       parameters for hudson and hpulse.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_hudson
  *
  * @author Ben Baker, ISTI
  *
@@ -270,6 +276,8 @@ int tdsearch_hudson_initializeParametersFromIniFile(
  *
  * @result 0 indicates success.
  *
+ * @ingroup tdsearch_hudson
+ *
  * @author Ben Baker, ISTI
  *
  */
@@ -291,6 +299,8 @@ int tdsearch_hudson_setHudson96Parms(
  * @param[out] grns        Contains the hpulse STF parameters.
  *
  * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_hudson
  *
  * @author Ben Baker, ISTI
  *
@@ -364,6 +374,17 @@ int tdsearch_hudson_setDistancesToModel(const double distMin,
 //    // Loop on the data
 //}
 //============================================================================//
+/*!
+ * @brief Releases memory on the tdSearchHudson structure.
+ *
+ * @param[out] grns   On exit all memory has been freed and variables
+ *                    set to NULL or 0.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_hudson
+ *
+ */
 int tdsearch_hudson_free(struct tdSearchHudson_struct *grns)
 {
     int i, nloop;
@@ -381,6 +402,22 @@ int tdsearch_hudson_free(struct tdSearchHudson_struct *grns)
     return 0;
 }
 //============================================================================//
+/*!
+ * @brief Convenience routine to convert the observation, depth,
+ *        and t* index to a global index in an array.
+ *
+ * @param[in] iobs   Observation index in the range [0,grns.nobs-1].
+ * @param[in] idep   Depth index in the range [0,grns.ndepth-1]. 
+ * @param[in] it     t* index in the range [0,grns.ntstar-1]. 
+ * @param[in] grns   Green's functions structure which has the number
+ *                   of observations, depths, and t*'s. 
+ *
+ * @result The index in the grns functions array corresponding to the
+ *         given observation, t*, and depth. 
+ *
+ * @ingroup tdsearch_hudson
+ *
+ */
 int tdsearch_hudson_observationDepthTstarToIndex(
     const int iobs, const int idep, const int it,
     const struct tdSearchHudson_struct grns) 
@@ -429,6 +466,14 @@ int tdsearch_hudson_ffGreenToGreens(const struct tdSearchData_struct data,
 /*!
  * @brief Computes the fundamental fault Green's functions for the teleseismic
  *        body waves with hudson96.
+ *
+ * @param[in] data   Contains the data and SAC header information to which the
+ *                   Green's functions will be contextualized.
+ * @param[out] grns  Contains the Green's functions corresponding to the data.
+ * 
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_hudson
  *
  */
 int tdsearch_hudson_computeGreensFF(const struct tdSearchData_struct data,
@@ -811,6 +856,10 @@ NEXT_OBS:;
  * @param[in] depths   Depths (km) at which to compute synthetics.
  *
  * @param[out] grns    Contains the t* and depths at which to model waveforms.
+ *
+ * @result 0 indicates success.
+ *
+ * @ingroup tdsearch_hudson
  *
  * @author Ben Baker, ISTI
  *

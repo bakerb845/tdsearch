@@ -5,7 +5,6 @@
 /*!
  * @brief Green's function configuration and generation.
  * @defgroup tdsearch_greens Green's Functions
- * @ingroup tdsearch
  */
 
 #ifdef __cplusplus

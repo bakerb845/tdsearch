@@ -5,7 +5,6 @@
 /*!
  * @brief Functions for reading the event information.
  * @defgroup tdsearch_event Event Information
- * @ingroup tdsearch
  */
 
 #ifdef __cplusplus

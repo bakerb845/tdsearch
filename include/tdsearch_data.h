@@ -6,7 +6,6 @@
  * @brief Functions for data input/output, data processing, and data
  *        configuration.
  * @defgroup tdsearch_data Data
- * @ingroup tdsearch
  */
 #ifdef __cplusplus
 extern "C"

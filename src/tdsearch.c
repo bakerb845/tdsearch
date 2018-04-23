@@ -13,9 +13,6 @@
 #define PROGRAM_NAME "tdsearch"
 static int parseCommands(int argc, char *argv[], char iniFile[PATH_MAX]);
 
-/*!
- * @ingroup tdsearch
- */
 int main(int argc, char *argv[])
 {
     struct tdSearchData_struct data;

@@ -1,6 +1,10 @@
 #ifndef TDSEARCH_H__
 #define TDSEARCH_H__ 1
 
+/*!
+ * @defgroup tdsearch tdsearch
+ * @brief A toolkit for performing single station attenuation and event depth estimation.
+ */
 #include "tdsearch_config.h"
 #include "tdsearch_struct.h"
 #include "tdsearch_commands.h"

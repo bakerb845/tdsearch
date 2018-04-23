@@ -6,6 +6,7 @@
  * @brief Functions for configuring and calling hudons96 for fundamental
  *        fault teleseismic Green's functions computations.
  * @defgroup tdsearch_hudson Teleseismic Fundamental Fault Green's Functions
+ * @ingroup tdsearch 
  */
 
 #ifdef __cplusplus

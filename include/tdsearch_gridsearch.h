@@ -6,6 +6,7 @@
  * @brief Functions for configuring and applying the
  *        cross-correlation-based grid search.
  * @defgroup tdsearch_gridsearch Grid Search
+ * @ingroup tdsearch
  */
 
 #ifdef __cplusplus

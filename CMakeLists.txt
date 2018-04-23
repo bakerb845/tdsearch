@@ -102,7 +102,7 @@ CONFIGURE_PACKAGE_CONFIG_FILE(${CMAKE_MODULE_PATH}/FindTDSearch.cmake.in
                               ${CMAKE_BINARY_DIR}/FindTDSearch.cmake
                               INSTALL_DESTINATION ${LIB_INSTALL_DIR}/tdsearch/cmake
                               PATH_VARS INCLUDE_INSTALL_DIR SYSCONFIG_INSTALL_DIR)
-WRITE_BASIC_PACKAGE_VERSION_FILE(${LIBRARY_OUTPUT_PATH}/TDsearchConfigVersion.cmake
+WRITE_BASIC_PACKAGE_VERSION_FILE(${LIBRARY_OUTPUT_PATH}/TDSearchConfigVersion.cmake
                                  VERSION ${TDSEARCH_VERSION}
                                  COMPATIBILITY SameMajorVersion)
 SET(TARGET_NAMES tdSearch_shared tdsearch)
